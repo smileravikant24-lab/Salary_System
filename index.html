@@ -3,315 +3,670 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Satija Paper - Payroll & Leave Management System</title>
+  <title>Satija Paper — Payroll & Leave</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
-    .container { max-width: 1450px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-    
-    #loginSection { display: flex; align-items: center; justify-content: center; min-height: 90vh; }
-    .login-box { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 400px; text-align: center; border-top: 6px solid #1a73e8; }
-    .login-box input, .login-box select { width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-    .btn-primary { background: #1a73e8; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
-    
-    .header-flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
-    .role-badge { background: #e6f4ea; color: #1e8e3e; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 14px; }
-    
-    .controls-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 8px; }
-    
-    .table-wrapper { overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { border: 1px solid #ddd; padding: 10px 8px; text-align: center; }
-    th { background: #1a73e8; color: white; position: sticky; top: 0; }
-    
-    .editable-input { width: 85px; padding: 5px; text-align: center; border: 1px solid #ccc; border-radius: 4px; }
-    .bypass-input { background: #fff8e1; border-color: #ffb300; font-weight: bold; }
-    
-    .btn-group { display: flex; gap: 5px; justify-content: center; }
-    .btn-action { padding: 6px 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11px; }
-    .btn-approve { background: #e6f4ea; color: #1e8e3e; }
-    .btn-reject { background: #fce8e6; color: #d93025; }
-    .btn-add { background: #1a73e8; color: white; padding: 10px 16px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
-    .btn-danger { background: #d93025; color: white; }
+    :root {
+      --blue:#1a73e8; --blue-dark:#1557b0;
+      --green:#1e8e3e; --red:#d93025; --orange:#e37400;
+      --purple:#7b1fa2; --gray:#9aa0a6;
+      --bg:#f0f2f5; --white:#fff;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; color: #333; }
 
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; padding: 30px; border-radius: 10px; width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-    .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+    /* ─── TOAST ─── */
+    .toast { position: fixed; top: 20px; right: 20px; padding: 13px 20px; border-radius: 10px; color: white; font-weight: 600; font-size: 13px; z-index: 3000; box-shadow: 0 4px 16px rgba(0,0,0,0.2); animation: slideIn .3s ease-out; max-width: 320px; }
+    @keyframes slideIn { from { transform: translateX(120%); } to { transform: translateX(0); } }
+    .toast.success { background: var(--green); }
+    .toast.error   { background: var(--red); }
+    .toast.info    { background: var(--blue); }
 
-    .logout-btn { background: #fce8e6; color: #d93025; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-    
-    .toast { position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; color: white; font-weight: bold; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); animation: slideIn 0.3s ease-out; }
-    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-    .toast.success { background-color: #1e8e3e; }
-    .toast.error { background-color: #d93025; }
+    /* ─── LOGIN ─── */
+    #loginSection { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%); padding: 20px; }
+    .login-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 100%; max-width: 420px; }
+    .login-logo { text-align: center; margin-bottom: 28px; }
+    .login-logo h1 { color: var(--blue); margin: 0; font-size: 26px; }
+    .login-logo p  { color: #888; font-size: 13px; margin: 6px 0 0; }
+    .lf { margin-bottom: 16px; }
+    .lf label { display: block; font-size: 11px; font-weight: 700; color: #777; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+    .lf select, .lf input { width: 100%; padding: 12px 14px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; transition: border-color .2s; }
+    .lf select:focus, .lf input:focus { border-color: var(--blue); }
+    .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+    .btn-login:hover { opacity: .9; }
+
+    /* ─── DASHBOARD LAYOUT ─── */
+    #dashSection { display: none; }
+    .dash-header { background: white; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 200; gap: 12px; flex-wrap: wrap; }
+    .header-left h2 { margin: 0; font-size: 18px; color: var(--blue); }
+    .header-left p  { margin: 2px 0 0; font-size: 12px; color: #999; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .role-badge { padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    .role-Admin     { background: #fce8e6; color: #c62828; }
+    .role-Manager   { background: #e8f0fe; color: #1a56db; }
+    .role-MD        { background: #e6f4ea; color: #1e7e34; }
+    .role-Accountant{ background: #fff3e0; color: #e65100; }
+    .att-pill { display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .att-ok   { background: #e6f4ea; color: var(--green); }
+    .att-warn { background: #fff8e1; color: var(--orange); }
+    .att-err  { background: #fce8e6; color: var(--red); }
+    .btn-logout { background: none; border: 1.5px solid #ddd; padding: 7px 14px; border-radius: 8px; color: #666; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+    /* ─── BODY ─── */
+    .dash-body { padding: 20px 24px; max-width: 1700px; margin: 0 auto; }
+
+    /* ─── STATS ─── */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+    .stat-card { background: white; padding: 20px 22px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid; }
+    .stat-card.c-blue   { border-color: var(--blue); }
+    .stat-card.c-orange { border-color: var(--orange); }
+    .stat-card.c-green  { border-color: var(--green); }
+    .stat-card.c-purple { border-color: var(--purple); }
+    .stat-lbl { font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+    .stat-val { font-size: 28px; font-weight: 700; color: #222; line-height: 1; }
+    .stat-sub { font-size: 11px; color: #bbb; margin-top: 5px; }
+
+    /* ─── ROLE BANNER ─── */
+    .role-banner { background: white; border-radius: 12px; padding: 16px 20px; margin-bottom: 18px; display: flex; align-items: center; gap: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1.5px solid #e8f0fe; flex-wrap: wrap; }
+    .b-icon { font-size: 30px; flex-shrink: 0; }
+    .b-text h3 { margin: 0 0 4px; font-size: 14px; color: var(--blue); }
+    .b-text p  { margin: 0; font-size: 13px; color: #666; }
+    .b-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ─── CONTROLS ─── */
+    .ctrl-bar { background: white; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .tabs { display: flex; gap: 4px; background: #f0f2f5; border-radius: 8px; padding: 4px; }
+    .tab { padding: 7px 14px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: #777; background: transparent; transition: all .2s; white-space: nowrap; }
+    .tab.active { background: white; color: var(--blue); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .tc { border-radius: 10px; padding: 1px 7px; font-size: 10px; margin-left: 4px; color: white; }
+    .ctrl-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .wd-wrap { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; }
+    .wd-wrap input { width: 52px; padding: 6px 8px; border: 1.5px solid #ddd; border-radius: 6px; text-align: center; font-size: 13px; outline: none; }
+
+    /* ─── BUTTONS ─── */
+    .btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+    .btn:hover { opacity: .85; }
+    .btn-blue   { background: var(--blue); color: white; }
+    .btn-green  { background: var(--green); color: white; }
+    .btn-red    { background: var(--red); color: white; }
+    .btn-orange { background: var(--orange); color: white; }
+    .btn-ghost  { background: #f1f3f4; color: #555; border: 1.5px solid #e0e0e0; }
+    .sm { padding: 5px 10px; font-size: 11px; border-radius: 6px; }
+
+    /* ─── TABLE ─── */
+    .tbl-wrap { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 900px; }
+    th { background: var(--blue); color: white; padding: 12px 10px; text-align: center; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; white-space: nowrap; }
+    td { padding: 11px 10px; text-align: center; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8f9ff; }
+    .action-row td { background: #fffbf0 !important; }
+    .emp-name { font-weight: 700; font-size: 13px; text-align: left !important; padding-left: 16px !important; }
+    .chip { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .chip-cash   { background: #fce8e6; color: #c62828; }
+    .chip-bank   { background: #e8f0fe; color: #1a56db; }
+    .chip-leaves { background: #fff3e0; color: #e65100; }
+    .chip-zero   { background: #f1f3f4; color: #aaa; }
+    .ded-cell  { color: var(--red); font-weight: 600; }
+    .final-amt { color: var(--green); font-size: 13px; font-weight: 700; }
+    .bypass-inp { width: 90px; padding: 5px 8px; text-align: center; border: 1.5px solid #ffb300; border-radius: 6px; font-size: 12px; background: #fff8e1; font-weight: 600; }
+    .bypass-inp:disabled { background: #f5f5f5; border-color: #eee; cursor: not-allowed; }
+
+    /* ─── FLOW INDICATOR ─── */
+    .flow-row { display: flex; align-items: center; justify-content: center; gap: 0; }
+    .fstep { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .fdot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+    .fdot.done     { background: #e6f4ea; border-color: var(--green); color: var(--green); }
+    .fdot.active   { background: var(--blue); border-color: var(--blue); color: white; }
+    .fdot.pending  { background: #f5f5f5; border-color: #ccc; color: #bbb; }
+    .fdot.rejected { background: #fce8e6; border-color: var(--red); color: var(--red); }
+    .flbl { font-size: 9px; font-weight: 700; text-align: center; white-space: nowrap; }
+    .flbl.done    { color: var(--green); }
+    .flbl.active  { color: var(--blue); }
+    .flbl.pending { color: #bbb; }
+    .flbl.rejected{ color: var(--red); }
+    .fline { width: 16px; height: 2px; margin-bottom: 14px; flex-shrink: 0; }
+    .fline.done    { background: var(--green); }
+    .fline.pending { background: #ddd; }
+
+    /* ─── MODAL ─── */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
+    .modal-box { background: white; padding: 30px; border-radius: 14px; width: 100%; max-width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+    .modal-box h3 { margin: 0 0 22px; color: var(--blue); font-size: 18px; }
+    .mf { margin-bottom: 14px; }
+    .mf label { display: block; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+    .mf input, .mf select { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+    .mf input:focus, .mf select:focus { border-color: var(--blue); }
+    .info-box { background: #e8f0fe; border-left: 4px solid var(--blue); padding: 10px 12px; border-radius: 6px; font-size: 12px; color: #174ea6; margin-bottom: 14px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width:900px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width:560px) { .stats-row { grid-template-columns: 1fr; } .dash-body { padding: 14px 14px; } }
   </style>
 </head>
 <body>
 
-  <div id="toastContainer"></div>
+<div id="toastContainer"></div>
 
-  <!-- LOGIN SECTION -->
-  <div id="loginSection">
-    <div class="login-box">
-      <h2 style="color: #1a73e8; margin-top: 0;">Satija Paper</h2>
-      <p style="color: #666; font-size: 14px;">Payroll, Attendance & Approval Portal</p>
-      
-      <select id="loginEmail" style="font-size: 14px;">
-        <option value="" disabled selected>Select Authorized User</option>
-        <option value="mis@satijapaper.com">Admin (mis@satijapaper.com)</option>
-        <option value="mukesh.shukla@satijapaper.com">Manager (mukesh.shukla@satijapaper.com)</option>
-        <option value="pranavsatija@satijapaper.com">MD / Boss (pranavsatija@satijapaper.com)</option>
-        <option value="satijapaper@gmail.com">Accountant (satijapaper@gmail.com)</option>
+<!-- ═══ LOGIN ═══════════════════════════════════════════════════ -->
+<div id="loginSection">
+  <div class="login-box">
+    <div class="login-logo">
+      <h1>Satija Paper</h1>
+      <p>Payroll, Attendance & Approval Portal</p>
+    </div>
+    <div class="lf">
+      <label>Select Account</label>
+      <select id="loginEmail">
+        <option value="" disabled selected>Choose your account...</option>
+        <option value="mis@satijapaper.com">Admin — mis@satijapaper.com</option>
+        <option value="mukesh.shukla@satijapaper.com">Manager — mukesh.shukla</option>
+        <option value="pranavsatija@satijapaper.com">MD / Boss — pranavsatija</option>
+        <option value="satijapaper@gmail.com">Accountant — satijapaper@gmail.com</option>
       </select>
-      
-      <input type="password" id="loginPass" placeholder="Enter Password" autocomplete="off">
-      <button class="btn-primary" onclick="handleLogin()">Login to Dashboard</button>
+    </div>
+    <div class="lf">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="Enter your password"
+        autocomplete="off" onkeydown="if(event.key==='Enter') handleLogin()">
+    </div>
+    <button class="btn-login" onclick="handleLogin()">Login →</button>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD ════════════════════════════════════════════════ -->
+<div id="dashSection">
+
+  <!-- Sticky Header -->
+  <div class="dash-header">
+    <div class="header-left">
+      <h2 id="welcomeTitle">Dashboard</h2>
+      <p id="headerSub">—</p>
+    </div>
+    <div class="header-right">
+      <div id="attPill" class="att-pill att-warn">⏳ Attendance syncing...</div>
+      <span id="roleDisplay" class="role-badge">Role</span>
+      <button class="btn-logout" onclick="handleLogout()">Logout</button>
     </div>
   </div>
 
-  <!-- DASHBOARD SECTION -->
-  <div id="dashSection" class="container" style="display: none;">
-    <div class="header-flex">
-      <div>
-        <h2 id="welcomeTitle" style="margin: 0; color: #1a73e8;">Dashboard</h2>
-        <span id="roleDisplay" class="role-badge">Role</span>
+  <div class="dash-body">
+
+    <!-- Stats Cards -->
+    <div class="stats-row">
+      <div class="stat-card c-blue">
+        <div class="stat-lbl">Total Employees</div>
+        <div class="stat-val" id="sTotal">—</div>
+        <div class="stat-sub">In payroll this month</div>
       </div>
-      <button class="logout-btn" onclick="handleLogout()">Logout</button>
+      <div class="stat-card c-orange">
+        <div class="stat-lbl">Your Pending Actions</div>
+        <div class="stat-val" id="sPending">—</div>
+        <div class="stat-sub" id="sPendingSub">Awaiting your review</div>
+      </div>
+      <div class="stat-card c-green">
+        <div class="stat-lbl">Fully Approved (MD)</div>
+        <div class="stat-val" id="sApproved">—</div>
+        <div class="stat-sub">Final sign-off done</div>
+      </div>
+      <div class="stat-card c-purple">
+        <div class="stat-lbl">Total Net Payroll</div>
+        <div class="stat-val" id="sPayroll">—</div>
+        <div class="stat-sub" id="sPayrollSub">After all deductions</div>
+      </div>
     </div>
 
-    <!-- Controls & Filters -->
-    <div class="controls-bar">
-      <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-        <div>
-          <label><b>Filter Mode:</b></label>
-          <select id="paymentFilter" onchange="renderPayrollTable()" style="padding: 6px; border-radius: 6px;">
-            <option value="ALL">All Payment Modes</option>
-            <option value="Cash">Cash (Manager -> MD)</option>
-            <option value="Bank">Bank Account (Manager -> Accountant -> MD)</option>
-          </select>
-        </div>
-        <div>
+    <!-- Role Banner -->
+    <div class="role-banner">
+      <div class="b-icon" id="bIcon">👤</div>
+      <div class="b-text">
+        <h3 id="bTitle">Loading...</h3>
+        <p id="bDesc">Please wait while data is loading from Google Sheet.</p>
+      </div>
+      <div class="b-actions">
+        <button class="btn btn-blue" id="addEmpBtn" onclick="openModal()" style="display:none;">+ Add Employee</button>
+      </div>
+    </div>
+
+    <!-- ── Flow Legend ── -->
+    <div style="background:white; border-radius:10px; padding:12px 20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,0.05); display:flex; align-items:center; gap:24px; flex-wrap:wrap; font-size:12px;">
+      <span style="font-weight:700; color:#555;">Approval Flow:</span>
+      <span><span style="color:var(--orange);">💰 Cash:</span> Manager → MD Approve</span>
+      <span><span style="color:var(--blue);">🏦 Bank:</span> Manager → Accountant Verify → MD Approve</span>
+      <span style="margin-left:auto; display:flex; gap:14px; flex-wrap:wrap;">
+        <span><span class="fdot done" style="display:inline-flex;width:16px;height:16px;font-size:9px;">✓</span> Done</span>
+        <span><span class="fdot active" style="display:inline-flex;width:16px;height:16px;font-size:9px;">●</span> Active</span>
+        <span><span class="fdot pending" style="display:inline-flex;width:16px;height:16px;font-size:9px;">○</span> Waiting</span>
+        <span><span class="fdot rejected" style="display:inline-flex;width:16px;height:16px;font-size:9px;">✗</span> Rejected</span>
+      </span>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl-bar">
+      <div class="tabs">
+        <button class="tab active" onclick="setTab('ALL',this)">
+          All <span class="tc" id="tAll" style="background:var(--blue);">0</span>
+        </button>
+        <button class="tab" onclick="setTab('MY_ACTION',this)">
+          My Actions <span class="tc" id="tMine" style="background:var(--orange);">0</span>
+        </button>
+        <button class="tab" onclick="setTab('IN_PROGRESS',this)">
+          In Progress <span class="tc" id="tProg" style="background:var(--blue);">0</span>
+        </button>
+        <button class="tab" onclick="setTab('APPROVED',this)">
+          Approved <span class="tc" id="tApprv" style="background:var(--green);">0</span>
+        </button>
+      </div>
+      <div class="ctrl-right">
+        <div class="wd-wrap">
           <label><b>Working Days:</b></label>
-          <input type="number" id="globalWorkingDays" value="26" onchange="renderPayrollTable()" style="width: 60px; padding: 5px; text-align: center; border-radius: 4px; border: 1px solid #ccc;">
+          <input type="number" id="globalWorkingDays" value="26" onchange="renderAll()">
         </div>
-      </div>
-      <div style="display: flex; gap: 10px;">
-        <button id="addEmpBtn" class="btn-add" onclick="openModal()" style="display:none;">+ Add Employee</button>
-        <button class="btn-action" style="background: #1e8e3e; color: white; padding: 10px 16px; font-size: 13px;" onclick="exportExcel()">📥 Export Excel</button>
-        <button class="btn-action" style="background: #1a73e8; color: white; padding: 10px 16px; font-size: 13px;" onclick="loadDataFromSheet()">🔄 Refresh</button>
+        <button class="btn btn-green sm" onclick="exportExcel()">📥 Export</button>
+        <button class="btn btn-ghost sm" onclick="loadDataFromSheet()">🔄 Refresh</button>
       </div>
     </div>
 
-    <!-- Payroll Master Table -->
-    <div class="table-wrapper">
+    <!-- Table -->
+    <div class="tbl-wrap">
       <table id="payrollTable">
         <thead>
           <tr>
-            <th>Employee Name</th>
-            <th>Payment Mode</th>
-            <th>Total Leaves (CL/SL/Half)</th>
-            <th>Monthly Salary (₹)</th>
-            <th>Per-Day Salary (₹)</th>
-            <th>Auto Leave Deduction (₹)</th>
-            <th>Bypass / Manual Adjustment (₹)</th>
-            <th>Final Payable Amount (₹)</th>
-            <th>Flow Status</th>
-            <th>Actions / Controls</th>
+            <th style="text-align:left; padding-left:16px;">Employee Name</th>
+            <th>Mode</th>
+            <th>Leaves<br><small style="font-weight:400;">(From Attendance)</small></th>
+            <th>Monthly Salary</th>
+            <th>Per Day</th>
+            <th>Leave Deduction</th>
+            <th>Bypass / Override</th>
+            <th>Final Payable</th>
+            <th>Approval Flow Status</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody id="payrollBody">
-          <tr><td colspan="10" style="padding: 20px; text-align:center;">Loading data from Google Sheet...</td></tr>
+          <tr><td colspan="10" style="padding:40px; color:#aaa;">⏳ Loading data from Google Sheet...</td></tr>
         </tbody>
       </table>
     </div>
-  </div>
 
-  <!-- ADD / EDIT EMPLOYEE MODAL -->
-  <div id="empModal" class="modal">
-    <div class="modal-content">
-      <h3 id="modalTitle" style="color: #1a73e8; margin-top:0;">Add New Employee</h3>
-      <input type="hidden" id="editIndex" value="">
-      <label>Employee Name:</label>
+  </div>
+</div>
+
+<!-- ═══ ADD / EDIT MODAL ════════════════════════════════════════ -->
+<div id="empModal" class="modal">
+  <div class="modal-box">
+    <h3 id="modalTitle">Add Employee</h3>
+    <input type="hidden" id="editIndex">
+    <input type="hidden" id="editOrigName">
+    <div class="mf">
+      <label>Employee Name</label>
       <input type="text" id="modalName" placeholder="e.g. Rahul Sharma">
-      <label>Payment Mode:</label>
+    </div>
+    <div class="mf">
+      <label>Payment Mode</label>
       <select id="modalMode">
-        <option value="Cash">Cash</option>
-        <option value="Bank">Bank Account</option>
+        <option value="Cash">💰 Cash</option>
+        <option value="Bank">🏦 Bank Account</option>
       </select>
-      <label>Monthly Salary (₹):</label>
+    </div>
+    <div class="mf">
+      <label>Monthly Salary (₹)</label>
       <input type="number" id="modalSalary" placeholder="e.g. 25000">
-      <div style="background: #e8f0fe; border-left: 4px solid #1a73e8; padding: 10px 12px; border-radius: 6px; font-size: 13px; color: #174ea6;">
-        📋 <b>Leaves auto-calculated</b> from Attendance sheet (Admin portal)
-      </div>
-      <div style="display: flex; gap: 10px; margin-top: 15px;">
-        <button class="btn-primary" onclick="saveEmployee()">Save Employee</button>
-        <button class="btn-action btn-danger" onclick="closeModal()" style="width: 100%;">Cancel</button>
-      </div>
+    </div>
+    <div class="info-box">📋 <b>Leaves auto-calculated</b> from the Attendance sheet (Admin portal). Refresh dashboard after attendance is updated.</div>
+    <div class="modal-actions">
+      <button class="btn btn-blue" style="flex:1;" onclick="saveEmployee()">Save Employee</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
     </div>
   </div>
+</div>
 
 <script>
-  // Google Apps Script Web App URL integrated
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzwVOn33wNEGU5BP6ligdjr0JjxioeDLceSBf6a6DgVy0FYK48SHOepkC8PTXERgw28/exec";
-  
-  let currentUser = null;
-  let employeeData = [];
 
-  function showToast(text, type) {
-    const container = document.getElementById('toastContainer');
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.innerText = text;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 3500);
+  const USERS = {
+    "mis@satijapaper.com":           { role:"Admin",      pass:"admin123"  },
+    "mukesh.shukla@satijapaper.com": { role:"Manager",    pass:"mukesh123" },
+    "pranavsatija@satijapaper.com":  { role:"MD",         pass:"pranav123" },
+    "satijapaper@gmail.com":         { role:"Accountant", pass:"acc123"    }
+  };
+
+  let currentUser  = null;
+  let employeeData = [];
+  let activeTab    = "ALL";
+
+  // ─── TOAST ──────────────────────────────────────────────────
+  function showToast(msg, type="info") {
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerText = msg;
+    document.getElementById('toastContainer').appendChild(t);
+    setTimeout(() => t.remove(), 3500);
   }
 
+  // ─── AUTH ───────────────────────────────────────────────────
   function handleLogin() {
     const email = document.getElementById('loginEmail').value;
-    if(!email) {
-      showToast("Please select an authorized user account!", "error");
-      return;
+    const pass  = document.getElementById('loginPass').value;
+    if (!email) { showToast("Please select your account!", "error"); return; }
+    if (!pass)  { showToast("Please enter your password!", "error"); return; }
+    if (!USERS[email] || USERS[email].pass !== pass) {
+      showToast("Wrong password! Please try again.", "error"); return;
     }
-
-    const roles = {
-      "mis@satijapaper.com": "Admin",
-      "mukesh.shukla@satijapaper.com": "Manager",
-      "pranavsatija@satijapaper.com": "MD",
-      "satijapaper@gmail.com": "Accountant"
-    };
-
-    currentUser = { email: email, role: roles[email] };
-    
+    currentUser = { email, role: USERS[email].role };
     document.getElementById('loginSection').style.display = 'none';
-    document.getElementById('dashSection').style.display = 'block';
-    document.getElementById('welcomeTitle').innerText = `Welcome, ${email.split('@')[0].toUpperCase()}`;
-    document.getElementById('roleDisplay').innerText = `Role: ${currentUser.role}`;
-
-    if(currentUser.role === 'Manager' || currentUser.role === 'Admin') {
-      document.getElementById('addEmpBtn').style.display = 'block';
-    } else {
-      document.getElementById('addEmpBtn').style.display = 'none';
-    }
-
+    document.getElementById('dashSection').style.display  = 'block';
+    document.getElementById('welcomeTitle').innerText     = `Welcome, ${email.split('@')[0]}`;
+    document.getElementById('headerSub').innerText        = email;
+    document.getElementById('roleDisplay').className      = `role-badge role-${currentUser.role}`;
+    document.getElementById('roleDisplay').innerText      = currentUser.role;
+    const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Manager';
+    document.getElementById('addEmpBtn').style.display    = canEdit ? 'inline-flex' : 'none';
     loadDataFromSheet();
-    showToast("Login Successful!", "success");
+    showToast(`Login successful! Welcome, ${currentUser.role}.`, "success");
   }
 
   function handleLogout() {
-    currentUser = null;
-    document.getElementById('loginPass').value = "";
-    document.getElementById('dashSection').style.display = 'none';
+    currentUser = null; employeeData = [];
+    document.getElementById('loginPass').value            = "";
     document.getElementById('loginSection').style.display = 'flex';
+    document.getElementById('dashSection').style.display  = 'none';
   }
 
-  // Fetch data from Google Sheet Web App (leaves come auto from Attendance sheet)
+  // ─── DATA LOAD ──────────────────────────────────────────────
   function loadDataFromSheet() {
-    showToast("Syncing with Google Sheet...", "success");
-    const tbody = document.getElementById('payrollBody');
-    tbody.innerHTML = `<tr><td colspan="10" style="padding:20px; color:#888;">⏳ Loading from Google Sheet...</td></tr>`;
+    document.getElementById('payrollBody').innerHTML =
+      `<tr><td colspan="10" style="padding:40px;color:#aaa;">⏳ Syncing with Google Sheet...</td></tr>`;
+    setAttPill("warn", "⏳ Syncing attendance...");
 
     fetch(`${SCRIPT_URL}?action=getEmployees`)
-      .then(response => response.json())
+      .then(r => r.json())
       .then(data => {
         if (data.error) throw new Error(data.error);
-        employeeData = data || [];
-        renderPayrollTable();
-        showToast(`✅ ${employeeData.length} records loaded (leaves from Attendance sheet)`, "success");
+        employeeData = Array.isArray(data) ? data : [];
+        const totalLeaves = employeeData.reduce((s, e) => s + (parseFloat(e.leaves) || 0), 0);
+        if (totalLeaves > 0) {
+          setAttPill("ok", `✅ Attendance linked — ${totalLeaves} leave-days`);
+        } else {
+          setAttPill("warn", "📋 Attendance sheet (0 leaves yet)");
+        }
+        renderAll();
+        showToast(`✅ ${employeeData.length} records loaded from Google Sheet`, "success");
       })
-      .catch(error => {
-        console.error("Error loading data:", error);
+      .catch(err => {
+        console.error(err);
         employeeData = [];
-        tbody.innerHTML = `<tr><td colspan="10" style="padding:20px; color:#d93025;">⚠️ Could not connect to Google Sheet. Check SCRIPT_URL and deployment settings.<br><small>${error.message}</small></td></tr>`;
-        showToast("Sheet connection failed. Check console.", "error");
+        document.getElementById('payrollBody').innerHTML =
+          `<tr><td colspan="10" style="padding:40px;color:var(--red);">⚠️ Could not connect to Google Sheet.<br><small style="color:#999;">${err.message}</small></td></tr>`;
+        setAttPill("err", "❌ Sheet not connected");
+        showToast("Sheet connection failed!", "error");
       });
   }
 
-  function renderPayrollTable() {
-    const tbody = document.getElementById('payrollBody');
-    const filter = document.getElementById('paymentFilter').value;
-    const workingDays = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
-    
-    let filtered = employeeData.filter(emp => {
-      if(filter === 'ALL') return true;
-      return emp.mode === filter;
+  function setAttPill(cls, text) {
+    const el = document.getElementById('attPill');
+    el.className = `att-pill att-${cls}`;
+    el.innerText = text;
+  }
+
+  // ─── FLOW LOGIC ─────────────────────────────────────────────
+  // step: 0=Manager, 1=Accountant(bank only)/MD(cash), 2=MD(bank), 99=Done, -1=Rejected
+  function getFlowInfo(emp) {
+    const s = (emp.status || "").toLowerCase();
+    if (s.includes("reject"))                                          return { step:-1, state:"rejected" };
+    if (s.includes("approved by md") || s.includes("✓"))              return { step:99, state:"done"     };
+    if (emp.mode === "Cash") {
+      if (s.includes("pending manager") || s === "")                  return { step:0,  state:"active"   };
+      return { step:1, state:"active" }; // Pending MD
+    } else {
+      if (s.includes("pending manager") || s === "")                  return { step:0,  state:"active"   };
+      if (s.includes("verified by accountant") || (s.includes("accountant") && s.includes("pending md")))
+                                                                       return { step:2,  state:"active"   };
+      return { step:1, state:"active" }; // Pending Accountant
+    }
+  }
+
+  function needsMyAction(emp) {
+    const fi   = getFlowInfo(emp);
+    if (fi.state === "done" || fi.state === "rejected") return false;
+    const role = currentUser.role;
+    const mode = emp.mode;
+    if (role === "Admin" || role === "Manager")  return fi.step === 0;
+    if (role === "Accountant")                   return mode === "Bank" && fi.step === 1;
+    if (role === "MD") {
+      return (mode === "Cash" && fi.step === 1) || (mode === "Bank" && fi.step === 2);
+    }
+    return false;
+  }
+
+  // Visual flow HTML for each row
+  function flowHTML(emp) {
+    const fi    = getFlowInfo(emp);
+    const isCash = emp.mode === "Cash";
+
+    if (fi.state === "rejected") return `<span style="color:var(--red);font-size:11px;font-weight:700;">✗ Rejected by MD</span>`;
+    if (fi.state === "done")     return `<span style="color:var(--green);font-size:11px;font-weight:700;">✓ Approved by MD</span>`;
+
+    const steps    = isCash ? ["Manager","MD","Done"] : ["Manager","Acct","MD","Done"];
+    const active   = isCash
+      ? (fi.step === 0 ? 0 : fi.step === 1 ? 1 : 2)
+      : (fi.step === 0 ? 0 : fi.step === 1 ? 1 : fi.step === 2 ? 2 : 3);
+
+    let h = `<div class="flow-row">`;
+    steps.forEach((lbl, i) => {
+      const cls = i < active ? "done" : (i === active ? "active" : "pending");
+      const ico = i < active ? "✓" : (i === active ? "●" : "○");
+      h += `<div class="fstep"><div class="fdot ${cls}">${ico}</div><div class="flbl ${cls}">${lbl}</div></div>`;
+      if (i < steps.length - 1) {
+        h += `<div class="fline ${i < active ? 'done' : 'pending'}"></div>`;
+      }
+    });
+    h += `</div>`;
+    return h;
+  }
+
+  // Role-specific action buttons
+  function actionBtns(emp, idx) {
+    const role = currentUser.role;
+    const mode = emp.mode;
+    const fi   = getFlowInfo(emp);
+    const canEdit = role === "Admin" || role === "Manager";
+
+    if (fi.state === "done")     return `<span style="color:var(--green);font-size:11px;font-weight:700;">✓ Complete</span>`;
+    if (fi.state === "rejected") {
+      return canEdit
+        ? `<button class="btn btn-ghost sm" onclick="openEditModal(${idx})">✏️ Edit</button>
+           <button class="btn btn-orange sm" onclick="resetStatus(${idx})">↩ Reset</button>`
+        : `<span style="color:var(--red);font-size:11px;">Rejected</span>`;
+    }
+
+    let b = "";
+
+    // Manager / Admin
+    if (canEdit) {
+      if (fi.step === 0) {
+        const fwdStatus = mode === "Cash"
+          ? "Pending Cash Approval (MD)"
+          : "Pending Bank Verification";
+        const fwdLabel = mode === "Cash" ? "→ Send to MD" : "→ Send to Acct";
+        b += `<button class="btn btn-blue sm" onclick="forwardEmp(${idx},'${fwdStatus}')">${fwdLabel}</button> `;
+      }
+      b += `<button class="btn btn-ghost sm" onclick="openEditModal(${idx})">✏️</button>`;
+      if (role === "Admin") b += ` <button class="btn btn-red sm" onclick="deleteEmp(${idx})">🗑️</button>`;
+      return b;
+    }
+
+    // Accountant
+    if (role === "Accountant" && mode === "Bank" && fi.step === 1) {
+      return `<button class="btn btn-green sm" onclick="forwardEmp(${idx},'Verified by Accountant (Pending MD)')">✓ Verify & Forward</button>`;
+    }
+
+    // MD
+    if (role === "MD") {
+      const canAct = (mode === "Cash" && fi.step === 1) || (mode === "Bank" && fi.step === 2);
+      if (canAct) {
+        return `<button class="btn btn-green sm" onclick="forwardEmp(${idx},'Approved by MD ✓')">✓ Approve</button>
+                <button class="btn btn-red sm" onclick="forwardEmp(${idx},'Rejected by MD ✗')">✗ Reject</button>`;
+      }
+    }
+
+    return `<span style="font-size:11px;color:#bbb;">View Only</span>`;
+  }
+
+  // ─── TAB ────────────────────────────────────────────────────
+  function setTab(tab, el) {
+    activeTab = tab;
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    renderAll();
+  }
+
+  // ─── RENDER ─────────────────────────────────────────────────
+  function renderAll() { renderStats(); renderBanner(); renderTable(); }
+
+  function renderStats() {
+    const wd       = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
+    const total    = employeeData.length;
+    const approved = employeeData.filter(e => getFlowInfo(e).state === "done").length;
+    const myPend   = employeeData.filter(e => needsMyAction(e)).length;
+    const inProg   = employeeData.filter(e => { const f = getFlowInfo(e); return f.state !== "done" && f.state !== "rejected"; }).length;
+    let netTotal   = 0;
+
+    employeeData.forEach(e => {
+      const perDay  = e.salary / wd;
+      const autoDed = perDay * (parseFloat(e.leaves) || 0);
+      const useByp  = e.bypass !== undefined && e.bypass !== "" && !isNaN(e.bypass) && parseFloat(e.bypass) > 0;
+      netTotal += e.salary - (useByp ? parseFloat(e.bypass) : autoDed);
     });
 
-    if(filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10" style="padding: 20px; color: #777;">No records found.</td></tr>`;
+    document.getElementById('sTotal').innerText    = total;
+    document.getElementById('sPending').innerText  = myPend;
+    document.getElementById('sApproved').innerText = approved;
+    document.getElementById('sPayroll').innerText  = `₹${Math.round(netTotal).toLocaleString('en-IN')}`;
+
+    document.getElementById('tAll').innerText   = total;
+    document.getElementById('tMine').innerText  = myPend;
+    document.getElementById('tProg').innerText  = inProg;
+    document.getElementById('tApprv').innerText = approved;
+  }
+
+  function renderBanner() {
+    const role   = currentUser.role;
+    const myPend = employeeData.filter(e => needsMyAction(e)).length;
+    const maps   = {
+      Admin     : { icon:"🛡️", title:`Admin — ${myPend} item(s) pending your action`, desc: myPend > 0 ? `Review and forward ${myPend} employee(s). Cash → MD, Bank → Accountant.` : "All forwarded. Monitor flow below." },
+      Manager   : { icon:"👔", title:`Manager — ${myPend} employee(s) to forward`, desc: myPend > 0 ? `Review salary details then click "Send to MD" (Cash) or "Send to Acct" (Bank).` : "All forwarded to next stage. ✅" },
+      Accountant: { icon:"📒", title:`Accountant — ${myPend} Bank payment(s) to verify`, desc: myPend > 0 ? `Verify ${myPend} bank payment(s) and mark verified for MD approval.` : "No pending bank verifications. All clear! ✅" },
+      MD        : { icon:"👑", title:`MD — ${myPend} payment(s) awaiting final approval`, desc: myPend > 0 ? `${myPend} salary payment(s) ready for your Approve / Reject.` : "All payments signed off! Nothing pending. ✅" }
+    };
+    const bd = maps[role] || maps.Admin;
+    document.getElementById('bIcon').innerText  = bd.icon;
+    document.getElementById('bTitle').innerText = bd.title;
+    document.getElementById('bDesc').innerText  = bd.desc;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('payrollBody');
+    const wd    = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
+
+    let list = employeeData;
+    if (activeTab === "MY_ACTION")   list = employeeData.filter(e => needsMyAction(e));
+    if (activeTab === "IN_PROGRESS") list = employeeData.filter(e => { const f = getFlowInfo(e); return f.state !== "done" && f.state !== "rejected"; });
+    if (activeTab === "APPROVED")    list = employeeData.filter(e => getFlowInfo(e).state === "done");
+
+    if (list.length === 0) {
+      const msgs = { ALL:"No employees yet. Click '+ Add Employee' to start.", MY_ACTION:"✅ Nothing pending for you right now!", IN_PROGRESS:"No payments in progress.", APPROVED:"No fully approved payments yet." };
+      tbody.innerHTML = `<tr><td colspan="10" style="padding:40px;color:#aaa;">${msgs[activeTab]||"No records."}</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = filtered.map((emp, originalIdx) => {
-      let actualIdx = employeeData.findIndex(e => e.name === emp.name);
-      let perDay = (emp.salary / workingDays).toFixed(2);
-      let autoDeduction = (perDay * emp.leaves).toFixed(2);
-      
-      let effectiveDeduction = (emp.bypass !== undefined && emp.bypass !== "" && !isNaN(emp.bypass)) ? parseFloat(emp.bypass) : parseFloat(autoDeduction);
-      let finalAmount = (emp.salary - effectiveDeduction).toFixed(2);
-
-      let actionButtons = '';
-      if(currentUser.role === 'MD') {
-        actionButtons = `<button class="btn-action btn-approve" onclick="updateStatus(${actualIdx}, 'Approved by MD')">✓ Final Approve</button>`;
-      } else if(currentUser.role === 'Accountant' && emp.mode === 'Bank') {
-        actionButtons = `<button class="btn-action btn-approve" onclick="updateStatus(${actualIdx}, 'Verified by Accountant (Pending MD)')">✓ Mark Done</button>`;
-      } else if(currentUser.role === 'Manager' || currentUser.role === 'Admin') {
-        actionButtons = `
-          <button class="btn-action" style="background:#f1f3f4; color:#333;" onclick="openEditModal(${actualIdx})">✏️ Edit</button>
-          <button class="btn-action btn-reject" onclick="deleteEmp(${actualIdx})">🗑️</button>
-        `;
-      } else {
-        actionButtons = `<span style="font-size:11px; color:#888;">View Only</span>`;
-      }
+    tbody.innerHTML = list.map(emp => {
+      const actualIdx = employeeData.findIndex(e => e.name === emp.name);
+      const perDay    = (emp.salary / wd).toFixed(2);
+      const autoDed   = ((parseFloat(perDay)) * (parseFloat(emp.leaves) || 0)).toFixed(2);
+      const useByp    = emp.bypass !== undefined && emp.bypass !== "" && !isNaN(emp.bypass) && parseFloat(emp.bypass) > 0;
+      const effDed    = useByp ? parseFloat(emp.bypass).toFixed(2) : autoDed;
+      const finalAmt  = (emp.salary - parseFloat(effDed)).toFixed(2);
+      const fi        = getFlowInfo(emp);
+      const myAct     = needsMyAction(emp);
+      const rowCls    = myAct ? "action-row" : "";
+      const leavesStr = parseFloat(emp.leaves) || 0;
+      const lvBadge   = leavesStr > 0
+        ? `<span class="chip chip-leaves">📅 ${leavesStr} day${leavesStr > 1 ? 's' : ''}</span>`
+        : `<span class="chip chip-zero">0 days</span>`;
+      const canBypass = currentUser.role === "Admin" || currentUser.role === "Manager";
 
       return `
-        <tr>
-          <td><b>${emp.name}</b></td>
-          <td><span style="font-weight:bold; color:${emp.mode === 'Cash' ? '#d93025' : '#1a73e8'}">${emp.mode}</span></td>
-          <td><span style="color:#856404; font-weight:bold;">${emp.leaves} days</span></td>
-          <td>₹${emp.salary}</td>
-          <td>₹${perDay}</td>
-          <td style="color:red;">-₹${autoDeduction}</td>
-          <td>
-            <input type="number" class="editable-input bypass-input" value="${emp.bypass !== undefined ? emp.bypass : ''}" placeholder="${autoDeduction}" onchange="updateBypass(${actualIdx}, this.value)" title="Enter custom override amount">
+        <tr class="${rowCls}">
+          <td class="emp-name">
+            ${emp.name}
+            ${myAct ? '<span style="color:var(--orange);font-size:10px;font-weight:700;margin-left:6px;">⬤ YOUR TURN</span>' : ''}
           </td>
-          <td><b style="color:green; font-size:13px;">₹${finalAmount}</b></td>
-          <td><span style="font-size:11px; background:#e8f0fe; padding:4px 8px; border-radius:4px; font-weight:600;">${emp.status || 'Pending'}</span></td>
-          <td><div class="btn-group">${actionButtons}</div></td>
-        </tr>
-      `;
+          <td><span class="chip ${emp.mode==='Cash'?'chip-cash':'chip-bank'}">${emp.mode}</span></td>
+          <td>${lvBadge}</td>
+          <td>₹${emp.salary.toLocaleString('en-IN')}</td>
+          <td>₹${perDay}</td>
+          <td class="ded-cell">-₹${autoDed}</td>
+          <td>
+            <input type="number" class="bypass-inp" value="${emp.bypass||''}" placeholder="${autoDed}"
+              title="Enter custom override (overrides auto deduction)"
+              onchange="updateBypass(${actualIdx},this.value)"
+              ${canBypass ? '' : 'disabled'}>
+          </td>
+          <td><span class="final-amt">₹${parseFloat(finalAmt).toLocaleString('en-IN')}</span></td>
+          <td>${flowHTML(emp)}</td>
+          <td>
+            <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
+              ${actionBtns(emp, actualIdx)}
+            </div>
+          </td>
+        </tr>`;
     }).join('');
   }
 
-  function updateBypass(index, val) {
-    employeeData[index].bypass = val === "" ? 0 : parseFloat(val);
+  // ─── ACTIONS ────────────────────────────────────────────────
+  function forwardEmp(idx, status) {
+    employeeData[idx].status = status;
     syncPayrollState();
-    renderPayrollTable();
+    renderAll();
+    showToast(`✅ ${status}`, "success");
   }
 
-  function updateStatus(index, newStatus) {
-    employeeData[index].status = newStatus;
+  function resetStatus(idx) {
+    employeeData[idx].status = "Pending Manager Review";
     syncPayrollState();
-    renderPayrollTable();
-    showToast(`Status updated: ${newStatus}`, "success");
+    renderAll();
+    showToast("Status reset. Manager can review again.", "info");
   }
 
+  function updateBypass(idx, val) {
+    employeeData[idx].bypass = val === "" ? 0 : parseFloat(val);
+    syncPayrollState();
+    renderAll();
+  }
+
+  // ─── MODAL ──────────────────────────────────────────────────
   function openModal() {
     document.getElementById('modalTitle').innerText = "Add New Employee";
-    document.getElementById('editIndex').value = "";
-    document.getElementById('modalName').value = "";
-    document.getElementById('modalSalary').value = "";
-    document.getElementById('modalLeaves').value = "0";
+    document.getElementById('editIndex').value      = "";
+    document.getElementById('editOrigName').value   = "";
+    document.getElementById('modalName').value      = "";
+    document.getElementById('modalSalary').value    = "";
+    document.getElementById('modalMode').value      = "Cash";
     document.getElementById('empModal').style.display = 'flex';
   }
 
-  function openEditModal(index) {
-    let emp = employeeData[index];
-    document.getElementById('modalTitle').innerText = "Edit Employee Details";
-    document.getElementById('editIndex').value = index;
-    document.getElementById('modalName').value = emp.name;
-    document.getElementById('modalMode').value = emp.mode;
-    document.getElementById('modalSalary').value = emp.salary;
-    document.getElementById('modalLeaves').value = emp.leaves;
+  function openEditModal(idx) {
+    const e = employeeData[idx];
+    document.getElementById('modalTitle').innerText = "Edit Employee";
+    document.getElementById('editIndex').value      = idx;
+    document.getElementById('editOrigName').value   = e.name;
+    document.getElementById('modalName').value      = e.name;
+    document.getElementById('modalMode').value      = e.mode;
+    document.getElementById('modalSalary').value    = e.salary;
     document.getElementById('empModal').style.display = 'flex';
   }
 
@@ -323,71 +678,57 @@
     const name      = document.getElementById('modalName').value.trim();
     const mode      = document.getElementById('modalMode').value;
     const salary    = parseFloat(document.getElementById('modalSalary').value);
-    const editIndex = document.getElementById('editIndex').value;
+    const editIdx   = document.getElementById('editIndex').value;
+    const origName  = document.getElementById('editOrigName').value;
 
     if (!name || isNaN(salary) || salary <= 0) {
-      showToast("Please enter valid name and salary!", "error");
-      return;
+      showToast("Please enter valid name and salary!", "error"); return;
     }
 
-    if (editIndex === "") {
-      // Add new employee
-      const newEmp = {
-        name    : name,
-        mode    : mode,
-        salary  : salary,
-        leaves  : 0, // Will auto-populate from Attendance sheet on next sync
-        bypass  : 0,
-        status  : mode === 'Cash' ? "Pending Cash Approval (MD)" : "Pending Bank Verification"
-      };
-      employeeData.push(newEmp);
-      postToBackend({ action: "addEmployee", data: { name, mode, salary } });
+    if (editIdx === "") {
+      employeeData.push({ name, mode, salary, leaves:0, bypass:0, status:"Pending Manager Review" });
+      postToBackend({ action:"addEmployee", data:{ name, mode, salary } });
       showToast("Employee added! Leaves will auto-load from Attendance sheet.", "success");
     } else {
-      const oldName = employeeData[editIndex].name;
-      employeeData[editIndex].name   = name;
-      employeeData[editIndex].mode   = mode;
-      employeeData[editIndex].salary = salary;
-      postToBackend({ action: "updateEmployee", oldName: oldName, data: { name, mode, salary } });
-      showToast("Employee updated successfully!", "success");
+      employeeData[editIdx].name   = name;
+      employeeData[editIdx].mode   = mode;
+      employeeData[editIdx].salary = salary;
+      postToBackend({ action:"updateEmployee", oldName:origName, data:{ name, mode, salary } });
+      showToast("Employee updated!", "success");
     }
-
     closeModal();
-    renderPayrollTable();
+    renderAll();
   }
 
-  function deleteEmp(index) {
-    if (!confirm("Are you sure you want to delete this employee?")) return;
-    const empName = employeeData[index].name;
-    employeeData.splice(index, 1);
-    postToBackend({ action: "deleteEmployee", name: empName });
-    renderPayrollTable();
-    showToast("Employee deleted!", "success");
+  function deleteEmp(idx) {
+    if (!confirm(`Delete "${employeeData[idx].name}" from payroll?`)) return;
+    const name = employeeData[idx].name;
+    employeeData.splice(idx, 1);
+    postToBackend({ action:"deleteEmployee", name });
+    renderAll();
+    showToast("Employee deleted.", "success");
   }
 
-  // Save bypass/status state to Payroll sheet
+  // ─── BACKEND SYNC ───────────────────────────────────────────
   function syncPayrollState() {
-    postToBackend({ action: "savePayroll", data: employeeData });
+    postToBackend({ action:"savePayroll", data:employeeData });
   }
 
-  // Generic POST to Google Apps Script
   function postToBackend(payload) {
     fetch(SCRIPT_URL, {
-      method  : "POST",
-      mode    : "no-cors",
-      headers : { "Content-Type": "application/json" },
-      body    : JSON.stringify(payload)
-    }).catch(err => console.error("Sync error:", err));
+      method:"POST", mode:"no-cors",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    }).catch(e => console.error("Sync error:", e));
   }
 
+  // ─── EXPORT ─────────────────────────────────────────────────
   function exportExcel() {
     try {
-      const wb = XLSX.utils.table_to_book(document.getElementById('payrollTable'), {sheet: "Payroll_Report"});
-      XLSX.writeFile(wb, `SatijaPaper_Payroll_Report.xlsx`);
-      showToast("Excel exported successfully!", "success");
-    } catch(e) {
-      showToast("Export failed!", "error");
-    }
+      const wb = XLSX.utils.table_to_book(document.getElementById('payrollTable'), { sheet:"Payroll" });
+      XLSX.writeFile(wb, `SatijaPaper_Payroll_${new Date().toLocaleDateString('en-IN').replace(/\//g,'-')}.xlsx`);
+      showToast("Excel exported!", "success");
+    } catch(e) { showToast("Export failed!", "error"); }
   }
 </script>
 </body>
