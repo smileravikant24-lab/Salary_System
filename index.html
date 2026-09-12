@@ -140,8 +140,9 @@
       </select>
       <label>Monthly Salary (₹):</label>
       <input type="number" id="modalSalary" placeholder="e.g. 25000">
-      <label>Leaves Recorded (e.g. 1, 0.5, 2):</label>
-      <input type="number" step="0.5" id="modalLeaves" value="0">
+      <div style="background: #e8f0fe; border-left: 4px solid #1a73e8; padding: 10px 12px; border-radius: 6px; font-size: 13px; color: #174ea6;">
+        📋 <b>Leaves auto-calculated</b> from Attendance sheet (Admin portal)
+      </div>
       <div style="display: flex; gap: 10px; margin-top: 15px;">
         <button class="btn-primary" onclick="saveEmployee()">Save Employee</button>
         <button class="btn-action btn-danger" onclick="closeModal()" style="width: 100%;">Cancel</button>
@@ -203,25 +204,25 @@
     document.getElementById('loginSection').style.display = 'flex';
   }
 
-  // Fetch data from Google Sheet Web App
+  // Fetch data from Google Sheet Web App (leaves come auto from Attendance sheet)
   function loadDataFromSheet() {
     showToast("Syncing with Google Sheet...", "success");
+    const tbody = document.getElementById('payrollBody');
+    tbody.innerHTML = `<tr><td colspan="10" style="padding:20px; color:#888;">⏳ Loading from Google Sheet...</td></tr>`;
+
     fetch(`${SCRIPT_URL}?action=getEmployees`)
       .then(response => response.json())
       .then(data => {
+        if (data.error) throw new Error(data.error);
         employeeData = data || [];
         renderPayrollTable();
-        showToast("Data synced successfully!", "success");
+        showToast(`✅ ${employeeData.length} records loaded (leaves from Attendance sheet)`, "success");
       })
       .catch(error => {
         console.error("Error loading data:", error);
-        // Fallback sample view if sheet is blank/unreachable
-        employeeData = [
-          { name: "Mr. Mukesh Shukla", mode: "Cash", salary: 26000, leaves: 1.0, bypass: 0, status: "Pending Cash Approval (MD)" },
-          { name: "Ms. Richa", mode: "Bank", salary: 22000, leaves: 2.0, bypass: 300, status: "Verified by Accountant (Pending MD)" }
-        ];
-        renderPayrollTable();
-        showToast("Loaded local fallback data (Check Script deployment if sheet required)", "error");
+        employeeData = [];
+        tbody.innerHTML = `<tr><td colspan="10" style="padding:20px; color:#d93025;">⚠️ Could not connect to Google Sheet. Check SCRIPT_URL and deployment settings.<br><small>${error.message}</small></td></tr>`;
+        showToast("Sheet connection failed. Check console.", "error");
       });
   }
 
@@ -283,15 +284,15 @@
 
   function updateBypass(index, val) {
     employeeData[index].bypass = val === "" ? 0 : parseFloat(val);
-    syncWithBackend();
+    syncPayrollState();
     renderPayrollTable();
   }
 
   function updateStatus(index, newStatus) {
     employeeData[index].status = newStatus;
-    syncWithBackend();
+    syncPayrollState();
     renderPayrollTable();
-    showToast(`Status updated to: ${newStatus}`, "success");
+    showToast(`Status updated: ${newStatus}`, "success");
   }
 
   function openModal() {
@@ -319,60 +320,64 @@
   }
 
   function saveEmployee() {
-    let name = document.getElementById('modalName').value.trim();
-    let mode = document.getElementById('modalMode').value;
-    let salary = parseFloat(document.getElementById('modalSalary').value);
-    let leaves = parseFloat(document.getElementById('modalLeaves').value) || 0;
-    let editIndex = document.getElementById('editIndex').value;
+    const name      = document.getElementById('modalName').value.trim();
+    const mode      = document.getElementById('modalMode').value;
+    const salary    = parseFloat(document.getElementById('modalSalary').value);
+    const editIndex = document.getElementById('editIndex').value;
 
-    if(!name || isNaN(salary)) {
+    if (!name || isNaN(salary) || salary <= 0) {
       showToast("Please enter valid name and salary!", "error");
       return;
     }
 
-    if(editIndex === "") {
-      employeeData.push({
-        name: name,
-        mode: mode,
-        salary: salary,
-        leaves: leaves,
-        bypass: 0,
-        status: mode === 'Cash' ? "Pending Cash Approval (MD)" : "Pending Bank Verification"
-      });
-      showToast("Employee added successfully!", "success");
+    if (editIndex === "") {
+      // Add new employee
+      const newEmp = {
+        name    : name,
+        mode    : mode,
+        salary  : salary,
+        leaves  : 0, // Will auto-populate from Attendance sheet on next sync
+        bypass  : 0,
+        status  : mode === 'Cash' ? "Pending Cash Approval (MD)" : "Pending Bank Verification"
+      };
+      employeeData.push(newEmp);
+      postToBackend({ action: "addEmployee", data: { name, mode, salary } });
+      showToast("Employee added! Leaves will auto-load from Attendance sheet.", "success");
     } else {
-      employeeData[editIndex].name = name;
-      employeeData[editIndex].mode = mode;
+      const oldName = employeeData[editIndex].name;
+      employeeData[editIndex].name   = name;
+      employeeData[editIndex].mode   = mode;
       employeeData[editIndex].salary = salary;
-      employeeData[editIndex].leaves = leaves;
+      postToBackend({ action: "updateEmployee", oldName: oldName, data: { name, mode, salary } });
       showToast("Employee updated successfully!", "success");
     }
 
-    syncWithBackend();
     closeModal();
     renderPayrollTable();
   }
 
   function deleteEmp(index) {
-    if(!confirm("Are you sure you want to delete this employee?")) return;
+    if (!confirm("Are you sure you want to delete this employee?")) return;
+    const empName = employeeData[index].name;
     employeeData.splice(index, 1);
-    syncWithBackend();
+    postToBackend({ action: "deleteEmployee", name: empName });
     renderPayrollTable();
     showToast("Employee deleted!", "success");
   }
 
-  // Push changes to Google Sheets Web App endpoint
-  function syncWithBackend() {
+  // Save bypass/status state to Payroll sheet
+  function syncPayrollState() {
+    postToBackend({ action: "savePayroll", data: employeeData });
+  }
+
+  // Generic POST to Google Apps Script
+  function postToBackend(payload) {
     fetch(SCRIPT_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(employeeData)
-    }).then(() => {
-      showToast("Changes synced to Google Sheet!", "success");
-    }).catch(err => {
-      console.error("Sync error:", err);
-    });
+      method  : "POST",
+      mode    : "no-cors",
+      headers : { "Content-Type": "application/json" },
+      body    : JSON.stringify(payload)
+    }).catch(err => console.error("Sync error:", err));
   }
 
   function exportExcel() {
