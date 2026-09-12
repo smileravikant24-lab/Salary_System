@@ -59,6 +59,10 @@ function doPost(e) {
 }
 
 // ─── EMPLOYEES + LEAVE MERGE ─────────────────────────────────
+// Employee names come from the Leaves sheet (unique names).
+// Salary & Mode come from the Employees tab (matched by name).
+// If an employee has leaves but no Employees tab entry, they
+// still appear with salary=0 until set via Add Employee form.
 
 function getEmployees(month, year) {
   const ss = getDataSS();
@@ -66,35 +70,41 @@ function getEmployees(month, year) {
   ensureSheet(ss, SHEET_EMPLOYEES, ["Name", "Mode", "MonthlySalary"]);
   ensureSheet(ss, SHEET_PAYROLL,   ["Name", "Bypass", "Status", "LastUpdated"]);
 
-  const empRows     = ss.getSheetByName(SHEET_EMPLOYEES).getDataRange().getValues();
+  // Salary/Mode lookup from Employees tab
+  const empRows  = ss.getSheetByName(SHEET_EMPLOYEES).getDataRange().getValues();
+  const empMap   = {}; // name_lc → {mode, salary}
+  for (let i = 1; i < empRows.length; i++) {
+    const r = empRows[i];
+    if (!r[0]) continue;
+    empMap[norm(r[0])] = { name: String(r[0]).trim(), mode: String(r[1]).trim() || "Cash", salary: parseFloat(r[2]) || 0 };
+  }
+
+  // Payroll state map
   const payrollRows = ss.getSheetByName(SHEET_PAYROLL).getDataRange().getValues();
-
-  if (empRows.length <= 1) return [];
-
-  const payrollMap = {};
+  const payrollMap  = {};
   for (let i = 1; i < payrollRows.length; i++) {
     const r = payrollRows[i];
     if (r[0]) payrollMap[norm(r[0])] = { bypass: parseFloat(r[1]) || 0, status: r[2] || "" };
   }
 
-  const leaveMap = getLeaveMap(month, year);
+  // Full leave map for selected month (ALL months' unique names for roster)
+  const leaveMap     = getLeaveMap(month, year);
+  const allNamesMap  = getAllEmployeeNamesFromLeaves(); // unique names ever in Leaves
 
+  // Merge: union of names from Leaves sheet + Employees tab
+  const seen     = {};
   const employees = [];
-  for (let i = 1; i < empRows.length; i++) {
-    const r = empRows[i];
-    if (!r[0]) continue;
 
-    const name   = String(r[0]).trim();
-    const mode   = String(r[1]).trim() || "Cash";
-    const salary = parseFloat(r[2]) || 0;
-    const key    = norm(name);
-    const pr     = payrollMap[key] || {};
-    const lv     = leaveMap[key]   || { total: 0, cl: 0, sl: 0, half: 0, details: [] };
-
+  const addEmployee_ = (key, displayName) => {
+    if (seen[key]) return;
+    seen[key] = true;
+    const emp  = empMap[key]     || { name: displayName, mode: "Cash", salary: 0 };
+    const pr   = payrollMap[key] || {};
+    const lv   = leaveMap[key]   || { total: 0, cl: 0, sl: 0, half: 0, details: [] };
     employees.push({
-      name,
-      mode,
-      salary,
+      name         : emp.name,
+      mode         : emp.mode,
+      salary       : emp.salary,
       leaves       : lv.total,
       leaveCL      : lv.cl,
       leaveSL      : lv.sl,
@@ -103,9 +113,29 @@ function getEmployees(month, year) {
       bypass       : pr.bypass !== undefined ? pr.bypass : 0,
       status       : pr.status || "Pending Manager Review"
     });
-  }
+  };
+
+  // First: all names that appear in Leaves sheet
+  Object.keys(allNamesMap).forEach(key => addEmployee_(key, allNamesMap[key]));
+
+  // Then: any extras in Employees tab not in Leaves
+  Object.keys(empMap).forEach(key => addEmployee_(key, empMap[key].name));
 
   return employees;
+}
+
+// Returns all unique employee names ever seen in Leaves sheet
+function getAllEmployeeNamesFromLeaves() {
+  const ss    = getDataSS();
+  const sheet = ss.getSheetByName(LEAVES_TAB);
+  if (!sheet) return {};
+  const rows = sheet.getDataRange().getValues();
+  const map  = {};
+  for (let i = 1; i < rows.length; i++) {
+    const name = String(rows[i][1] || "").trim();
+    if (name) map[norm(name)] = name;
+  }
+  return map;
 }
 
 // ─── LEAVE DATA FROM CENTRAL SHEET ──────────────────────────
