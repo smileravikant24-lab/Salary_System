@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Satija Paper - Payroll & Leave Management System</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+    .container { max-width: 1450px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    
+    #loginSection { display: flex; align-items: center; justify-content: center; min-height: 90vh; }
+    .login-box { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 400px; text-align: center; border-top: 6px solid #1a73e8; }
+    .login-box input, .login-box select { width: 100%; padding: 12px; margin: 12px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+    .btn-primary { background: #1a73e8; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
+    
+    .header-flex { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+    .role-badge { background: #e6f4ea; color: #1e8e3e; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 14px; }
+    
+    .controls-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 8px; }
+    
+    .table-wrapper { overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #ddd; padding: 10px 8px; text-align: center; }
+    th { background: #1a73e8; color: white; position: sticky; top: 0; }
+    
+    .editable-input { width: 85px; padding: 5px; text-align: center; border: 1px solid #ccc; border-radius: 4px; }
+    .bypass-input { background: #fff8e1; border-color: #ffb300; font-weight: bold; }
+    
+    .btn-group { display: flex; gap: 5px; justify-content: center; }
+    .btn-action { padding: 6px 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11px; }
+    .btn-approve { background: #e6f4ea; color: #1e8e3e; }
+    .btn-reject { background: #fce8e6; color: #d93025; }
+    .btn-add { background: #1a73e8; color: white; padding: 10px 16px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+    .btn-danger { background: #d93025; color: white; }
+
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; padding: 30px; border-radius: 10px; width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+    .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+
+    .logout-btn { background: #fce8e6; color: #d93025; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    
+    .toast { position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; color: white; font-weight: bold; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .toast.success { background-color: #1e8e3e; }
+    .toast.error { background-color: #d93025; }
+  </style>
+</head>
+<body>
+
+  <div id="toastContainer"></div>
+
+  <!-- LOGIN SECTION -->
+  <div id="loginSection">
+    <div class="login-box">
+      <h2 style="color: #1a73e8; margin-top: 0;">Satija Paper</h2>
+      <p style="color: #666; font-size: 14px;">Payroll, Attendance & Approval Portal</p>
+      
+      <select id="loginEmail" style="font-size: 14px;">
+        <option value="" disabled selected>Select Authorized User</option>
+        <option value="mis@satijapaper.com">Admin (mis@satijapaper.com)</option>
+        <option value="mukesh.shukla@satijapaper.com">Manager (mukesh.shukla@satijapaper.com)</option>
+        <option value="pranavsatija@satijapaper.com">MD / Boss (pranavsatija@satijapaper.com)</option>
+        <option value="satijapaper@gmail.com">Accountant (satijapaper@gmail.com)</option>
+      </select>
+      
+      <input type="password" id="loginPass" placeholder="Enter Password" autocomplete="off">
+      <button class="btn-primary" onclick="handleLogin()">Login to Dashboard</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD SECTION -->
+  <div id="dashSection" class="container" style="display: none;">
+    <div class="header-flex">
+      <div>
+        <h2 id="welcomeTitle" style="margin: 0; color: #1a73e8;">Dashboard</h2>
+        <span id="roleDisplay" class="role-badge">Role</span>
+      </div>
+      <button class="logout-btn" onclick="handleLogout()">Logout</button>
+    </div>
+
+    <!-- Controls & Filters -->
+    <div class="controls-bar">
+      <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+        <div>
+          <label><b>Filter Mode:</b></label>
+          <select id="paymentFilter" onchange="renderPayrollTable()" style="padding: 6px; border-radius: 6px;">
+            <option value="ALL">All Payment Modes</option>
+            <option value="Cash">Cash (Manager -> MD)</option>
+            <option value="Bank">Bank Account (Manager -> Accountant -> MD)</option>
+          </select>
+        </div>
+        <div>
+          <label><b>Working Days:</b></label>
+          <input type="number" id="globalWorkingDays" value="26" onchange="renderPayrollTable()" style="width: 60px; padding: 5px; text-align: center; border-radius: 4px; border: 1px solid #ccc;">
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button id="addEmpBtn" class="btn-add" onclick="openModal()" style="display:none;">+ Add Employee</button>
+        <button class="btn-action" style="background: #1e8e3e; color: white; padding: 10px 16px; font-size: 13px;" onclick="exportExcel()">📥 Export Excel</button>
+        <button class="btn-action" style="background: #1a73e8; color: white; padding: 10px 16px; font-size: 13px;" onclick="loadDataFromSheet()">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <!-- Payroll Master Table -->
+    <div class="table-wrapper">
+      <table id="payrollTable">
+        <thead>
+          <tr>
+            <th>Employee Name</th>
+            <th>Payment Mode</th>
+            <th>Total Leaves (CL/SL/Half)</th>
+            <th>Monthly Salary (₹)</th>
+            <th>Per-Day Salary (₹)</th>
+            <th>Auto Leave Deduction (₹)</th>
+            <th>Bypass / Manual Adjustment (₹)</th>
+            <th>Final Payable Amount (₹)</th>
+            <th>Flow Status</th>
+            <th>Actions / Controls</th>
+          </tr>
+        </thead>
+        <tbody id="payrollBody">
+          <tr><td colspan="10" style="padding: 20px; text-align:center;">Loading data from Google Sheet...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT EMPLOYEE MODAL -->
+  <div id="empModal" class="modal">
+    <div class="modal-content">
+      <h3 id="modalTitle" style="color: #1a73e8; margin-top:0;">Add New Employee</h3>
+      <input type="hidden" id="editIndex" value="">
+      <label>Employee Name:</label>
+      <input type="text" id="modalName" placeholder="e.g. Rahul Sharma">
+      <label>Payment Mode:</label>
+      <select id="modalMode">
+        <option value="Cash">Cash</option>
+        <option value="Bank">Bank Account</option>
+      </select>
+      <label>Monthly Salary (₹):</label>
+      <input type="number" id="modalSalary" placeholder="e.g. 25000">
+      <label>Leaves Recorded (e.g. 1, 0.5, 2):</label>
+      <input type="number" step="0.5" id="modalLeaves" value="0">
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button class="btn-primary" onclick="saveEmployee()">Save Employee</button>
+        <button class="btn-action btn-danger" onclick="closeModal()" style="width: 100%;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Google Apps Script Web App URL integrated
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzwVOn33wNEGU5BP6ligdjr0JjxioeDLceSBf6a6DgVy0FYK48SHOepkC8PTXERgw28/exec";
+  
+  let currentUser = null;
+  let employeeData = [];
+
+  function showToast(text, type) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerText = text;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+  }
+
+  function handleLogin() {
+    const email = document.getElementById('loginEmail').value;
+    if(!email) {
+      showToast("Please select an authorized user account!", "error");
+      return;
+    }
+
+    const roles = {
+      "mis@satijapaper.com": "Admin",
+      "mukesh.shukla@satijapaper.com": "Manager",
+      "pranavsatija@satijapaper.com": "MD",
+      "satijapaper@gmail.com": "Accountant"
+    };
+
+    currentUser = { email: email, role: roles[email] };
+    
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('dashSection').style.display = 'block';
+    document.getElementById('welcomeTitle').innerText = `Welcome, ${email.split('@')[0].toUpperCase()}`;
+    document.getElementById('roleDisplay').innerText = `Role: ${currentUser.role}`;
+
+    if(currentUser.role === 'Manager' || currentUser.role === 'Admin') {
+      document.getElementById('addEmpBtn').style.display = 'block';
+    } else {
+      document.getElementById('addEmpBtn').style.display = 'none';
+    }
+
+    loadDataFromSheet();
+    showToast("Login Successful!", "success");
+  }
+
+  function handleLogout() {
+    currentUser = null;
+    document.getElementById('loginPass').value = "";
+    document.getElementById('dashSection').style.display = 'none';
+    document.getElementById('loginSection').style.display = 'flex';
+  }
+
+  // Fetch data from Google Sheet Web App
+  function loadDataFromSheet() {
+    showToast("Syncing with Google Sheet...", "success");
+    fetch(`${SCRIPT_URL}?action=getEmployees`)
+      .then(response => response.json())
+      .then(data => {
+        employeeData = data || [];
+        renderPayrollTable();
+        showToast("Data synced successfully!", "success");
+      })
+      .catch(error => {
+        console.error("Error loading data:", error);
+        // Fallback sample view if sheet is blank/unreachable
+        employeeData = [
+          { name: "Mr. Mukesh Shukla", mode: "Cash", salary: 26000, leaves: 1.0, bypass: 0, status: "Pending Cash Approval (MD)" },
+          { name: "Ms. Richa", mode: "Bank", salary: 22000, leaves: 2.0, bypass: 300, status: "Verified by Accountant (Pending MD)" }
+        ];
+        renderPayrollTable();
+        showToast("Loaded local fallback data (Check Script deployment if sheet required)", "error");
+      });
+  }
+
+  function renderPayrollTable() {
+    const tbody = document.getElementById('payrollBody');
+    const filter = document.getElementById('paymentFilter').value;
+    const workingDays = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
+    
+    let filtered = employeeData.filter(emp => {
+      if(filter === 'ALL') return true;
+      return emp.mode === filter;
+    });
+
+    if(filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="padding: 20px; color: #777;">No records found.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map((emp, originalIdx) => {
+      let actualIdx = employeeData.findIndex(e => e.name === emp.name);
+      let perDay = (emp.salary / workingDays).toFixed(2);
+      let autoDeduction = (perDay * emp.leaves).toFixed(2);
+      
+      let effectiveDeduction = (emp.bypass !== undefined && emp.bypass !== "" && !isNaN(emp.bypass)) ? parseFloat(emp.bypass) : parseFloat(autoDeduction);
+      let finalAmount = (emp.salary - effectiveDeduction).toFixed(2);
+
+      let actionButtons = '';
+      if(currentUser.role === 'MD') {
+        actionButtons = `<button class="btn-action btn-approve" onclick="updateStatus(${actualIdx}, 'Approved by MD')">✓ Final Approve</button>`;
+      } else if(currentUser.role === 'Accountant' && emp.mode === 'Bank') {
+        actionButtons = `<button class="btn-action btn-approve" onclick="updateStatus(${actualIdx}, 'Verified by Accountant (Pending MD)')">✓ Mark Done</button>`;
+      } else if(currentUser.role === 'Manager' || currentUser.role === 'Admin') {
+        actionButtons = `
+          <button class="btn-action" style="background:#f1f3f4; color:#333;" onclick="openEditModal(${actualIdx})">✏️ Edit</button>
+          <button class="btn-action btn-reject" onclick="deleteEmp(${actualIdx})">🗑️</button>
+        `;
+      } else {
+        actionButtons = `<span style="font-size:11px; color:#888;">View Only</span>`;
+      }
+
+      return `
+        <tr>
+          <td><b>${emp.name}</b></td>
+          <td><span style="font-weight:bold; color:${emp.mode === 'Cash' ? '#d93025' : '#1a73e8'}">${emp.mode}</span></td>
+          <td><span style="color:#856404; font-weight:bold;">${emp.leaves} days</span></td>
+          <td>₹${emp.salary}</td>
+          <td>₹${perDay}</td>
+          <td style="color:red;">-₹${autoDeduction}</td>
+          <td>
+            <input type="number" class="editable-input bypass-input" value="${emp.bypass !== undefined ? emp.bypass : ''}" placeholder="${autoDeduction}" onchange="updateBypass(${actualIdx}, this.value)" title="Enter custom override amount">
+          </td>
+          <td><b style="color:green; font-size:13px;">₹${finalAmount}</b></td>
+          <td><span style="font-size:11px; background:#e8f0fe; padding:4px 8px; border-radius:4px; font-weight:600;">${emp.status || 'Pending'}</span></td>
+          <td><div class="btn-group">${actionButtons}</div></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function updateBypass(index, val) {
+    employeeData[index].bypass = val === "" ? 0 : parseFloat(val);
+    syncWithBackend();
+    renderPayrollTable();
+  }
+
+  function updateStatus(index, newStatus) {
+    employeeData[index].status = newStatus;
+    syncWithBackend();
+    renderPayrollTable();
+    showToast(`Status updated to: ${newStatus}`, "success");
+  }
+
+  function openModal() {
+    document.getElementById('modalTitle').innerText = "Add New Employee";
+    document.getElementById('editIndex').value = "";
+    document.getElementById('modalName').value = "";
+    document.getElementById('modalSalary').value = "";
+    document.getElementById('modalLeaves').value = "0";
+    document.getElementById('empModal').style.display = 'flex';
+  }
+
+  function openEditModal(index) {
+    let emp = employeeData[index];
+    document.getElementById('modalTitle').innerText = "Edit Employee Details";
+    document.getElementById('editIndex').value = index;
+    document.getElementById('modalName').value = emp.name;
+    document.getElementById('modalMode').value = emp.mode;
+    document.getElementById('modalSalary').value = emp.salary;
+    document.getElementById('modalLeaves').value = emp.leaves;
+    document.getElementById('empModal').style.display = 'flex';
+  }
+
+  function closeModal() {
+    document.getElementById('empModal').style.display = 'none';
+  }
+
+  function saveEmployee() {
+    let name = document.getElementById('modalName').value.trim();
+    let mode = document.getElementById('modalMode').value;
+    let salary = parseFloat(document.getElementById('modalSalary').value);
+    let leaves = parseFloat(document.getElementById('modalLeaves').value) || 0;
+    let editIndex = document.getElementById('editIndex').value;
+
+    if(!name || isNaN(salary)) {
+      showToast("Please enter valid name and salary!", "error");
+      return;
+    }
+
+    if(editIndex === "") {
+      employeeData.push({
+        name: name,
+        mode: mode,
+        salary: salary,
+        leaves: leaves,
+        bypass: 0,
+        status: mode === 'Cash' ? "Pending Cash Approval (MD)" : "Pending Bank Verification"
+      });
+      showToast("Employee added successfully!", "success");
+    } else {
+      employeeData[editIndex].name = name;
+      employeeData[editIndex].mode = mode;
+      employeeData[editIndex].salary = salary;
+      employeeData[editIndex].leaves = leaves;
+      showToast("Employee updated successfully!", "success");
+    }
+
+    syncWithBackend();
+    closeModal();
+    renderPayrollTable();
+  }
+
+  function deleteEmp(index) {
+    if(!confirm("Are you sure you want to delete this employee?")) return;
+    employeeData.splice(index, 1);
+    syncWithBackend();
+    renderPayrollTable();
+    showToast("Employee deleted!", "success");
+  }
+
+  // Push changes to Google Sheets Web App endpoint
+  function syncWithBackend() {
+    fetch(SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(employeeData)
+    }).then(() => {
+      showToast("Changes synced to Google Sheet!", "success");
+    }).catch(err => {
+      console.error("Sync error:", err);
+    });
+  }
+
+  function exportExcel() {
+    try {
+      const wb = XLSX.utils.table_to_book(document.getElementById('payrollTable'), {sheet: "Payroll_Report"});
+      XLSX.writeFile(wb, `SatijaPaper_Payroll_Report.xlsx`);
+      showToast("Excel exported successfully!", "success");
+    } catch(e) {
+      showToast("Export failed!", "error");
+    }
+  }
+</script>
+</body>
+</html>
