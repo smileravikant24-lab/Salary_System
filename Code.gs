@@ -3,13 +3,17 @@
 // Google Apps Script (Code.gs)
 // ============================================================
 
-// ── Sheet names in THIS spreadsheet (where Code.gs runs) ────
+// ── All data lives in this one spreadsheet ───────────────────
+const DATA_SS_ID      = "179U4qy_lPVOV4HtmNHoGfnNy_TgWHhzhxg0Ip-2sR2k";
+
 const SHEET_EMPLOYEES = "Employees"; // Name | Mode | MonthlySalary
 const SHEET_PAYROLL   = "Payroll";   // Name | Bypass | Status | LastUpdated
+const LEAVES_TAB      = "Leaves";    // Timestamp | Name | Type | Start | End | Reason | Status
 
-// ── External Leaves spreadsheet (Attendance System) ──────────
-const LEAVES_SS_ID  = "179U4qy_lPVOV4HtmNHoGfnNy_TgWHhzhxg0Ip-2sR2k";
-const LEAVES_TAB    = "Leaves"; // Tab name visible in screenshot
+// ─── Helper: always use the central spreadsheet ──────────────
+function getDataSS() {
+  return SpreadsheetApp.openById(DATA_SS_ID);
+}
 
 // ─── HTTP ENTRY POINTS ──────────────────────────────────────
 
@@ -56,9 +60,8 @@ function doPost(e) {
 
 // ─── EMPLOYEES + LEAVE MERGE ─────────────────────────────────
 
-// Returns combined list: employee info + approved leaves for month/year + payroll state
 function getEmployees(month, year) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getDataSS();
 
   ensureSheet(ss, SHEET_EMPLOYEES, ["Name", "Mode", "MonthlySalary"]);
   ensureSheet(ss, SHEET_PAYROLL,   ["Name", "Bypass", "Status", "LastUpdated"]);
@@ -68,15 +71,13 @@ function getEmployees(month, year) {
 
   if (empRows.length <= 1) return [];
 
-  // Payroll state map: name_lc → {bypass, status}
   const payrollMap = {};
   for (let i = 1; i < payrollRows.length; i++) {
     const r = payrollRows[i];
     if (r[0]) payrollMap[norm(r[0])] = { bypass: parseFloat(r[1]) || 0, status: r[2] || "" };
   }
 
-  // Leave data for selected month from external sheet
-  const leaveMap = getLeaveMap(month, year); // name_lc → {total, cl, sl, half, details}
+  const leaveMap = getLeaveMap(month, year);
 
   const employees = [];
   for (let i = 1; i < empRows.length; i++) {
@@ -100,41 +101,38 @@ function getEmployees(month, year) {
       leaveHalf    : lv.half,
       leaveDetails : lv.details,
       bypass       : pr.bypass !== undefined ? pr.bypass : 0,
-      status       : pr.status || (mode === "Cash" ? "Pending Manager Review" : "Pending Manager Review")
+      status       : pr.status || "Pending Manager Review"
     });
   }
 
   return employees;
 }
 
-// ─── LEAVE DATA FROM EXTERNAL SHEET ─────────────────────────
+// ─── LEAVE DATA FROM CENTRAL SHEET ──────────────────────────
 
-// Returns per-employee leave summary for a given month/year
-// Only rows where Status column = "Approved" are counted
 function getLeaveData(month, year) {
   return Object.values(getLeaveMap(month, year));
 }
 
 function getLeaveMap(month, year) {
-  let leaveSS, leavesSheet;
+  let ss, leavesSheet;
   try {
-    leaveSS     = SpreadsheetApp.openById(LEAVES_SS_ID);
-    leavesSheet = leaveSS.getSheetByName(LEAVES_TAB);
+    ss          = getDataSS();
+    leavesSheet = ss.getSheetByName(LEAVES_TAB);
   } catch(e) {
-    return {}; // External sheet not accessible
+    return {};
   }
   if (!leavesSheet) return {};
 
   const rows = leavesSheet.getDataRange().getValues();
   // Row 0 = headers: Timestamp | Name | Type | Start | End | Reason | Status
-  // Index:              0           1      2      3      4     5        6
 
-  const map = {}; // name_lc → {name, total, cl, sl, half, details}
+  const map = {};
 
   for (let i = 1; i < rows.length; i++) {
     const row    = rows[i];
     const name   = String(row[1] || "").trim();
-    const type   = String(row[2] || "").trim(); // CL | SL | 1/2 days
+    const type   = String(row[2] || "").trim();
     const start  = parseDate(row[3]);
     const end    = parseDate(row[4]) || start;
     const reason = String(row[5] || "").trim();
@@ -145,7 +143,6 @@ function getLeaveMap(month, year) {
     const isHalf = type.includes("1/2") || type.toLowerCase().includes("half");
     const key    = norm(name);
 
-    // Count only days that fall in the target month/year
     let days = 0;
     if (isHalf) {
       if (start.getMonth() + 1 === month && start.getFullYear() === year) days = 0.5;
@@ -166,7 +163,7 @@ function getLeaveMap(month, year) {
     if      (isHalf)           map[key].half += days;
     else if (typeLc === "CL")  map[key].cl   += days;
     else if (typeLc === "SL")  map[key].sl   += days;
-    else                       map[key].cl   += days; // unknown type → treat as CL
+    else                       map[key].cl   += days;
 
     map[key].total += days;
     map[key].details.push({
@@ -184,7 +181,7 @@ function getLeaveMap(month, year) {
 // ─── PAYROLL SAVE ────────────────────────────────────────────
 
 function savePayroll(employees) {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const ss    = getDataSS();
   const sheet = ensureSheet(ss, SHEET_PAYROLL, ["Name", "Bypass", "Status", "LastUpdated"]);
   const now   = Utilities.formatDate(new Date(), "Asia/Kolkata", "dd-MM-yyyy HH:mm");
 
@@ -209,11 +206,11 @@ function savePayroll(employees) {
 // ─── EMPLOYEE CRUD ────────────────────────────────────────────
 
 function addEmployee(emp) {
-  const ss       = SpreadsheetApp.getActiveSpreadsheet();
+  const ss       = getDataSS();
   const empSheet = ensureSheet(ss, SHEET_EMPLOYEES, ["Name", "Mode", "MonthlySalary"]);
   const existing = empSheet.getDataRange().getValues();
   for (let i = 1; i < existing.length; i++) {
-    if (norm(existing[i][0]) === norm(emp.name)) return; // duplicate
+    if (norm(existing[i][0]) === norm(emp.name)) return;
   }
   empSheet.appendRow([emp.name, emp.mode, emp.salary]);
 
@@ -223,7 +220,7 @@ function addEmployee(emp) {
 }
 
 function updateEmployee(oldName, updatedData) {
-  const ss       = SpreadsheetApp.getActiveSpreadsheet();
+  const ss       = getDataSS();
   const empSheet = ss.getSheetByName(SHEET_EMPLOYEES);
   if (!empSheet) return;
   const rows = empSheet.getDataRange().getValues();
@@ -245,7 +242,7 @@ function updateEmployee(oldName, updatedData) {
 }
 
 function deleteEmployee(empName) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getDataSS();
   [SHEET_EMPLOYEES, SHEET_PAYROLL].forEach(sheetName => {
     const sheet = ss.getSheetByName(sheetName);
     if (!sheet) return;
@@ -264,25 +261,21 @@ function fmtDate(d) {
   return Utilities.formatDate(d, "Asia/Kolkata", "dd-MM-yyyy");
 }
 
-// Parses Date objects and common string formats (YYYY-MM-DD, DD-MM-YYYY)
 function parseDate(val) {
   if (!val) return null;
   if (val instanceof Date && !isNaN(val.getTime())) return val;
   const s = String(val).trim();
   if (!s) return null;
 
-  // YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
     const d = new Date(s.substring(0, 10));
     return isNaN(d.getTime()) ? null : d;
   }
-  // DD-MM-YYYY
   if (/^\d{2}-\d{2}-\d{4}/.test(s)) {
     const parts = s.split("-");
     const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
     return isNaN(d.getTime()) ? null : d;
   }
-  // Fallback
   const d = new Date(s);
   return isNaN(d.getTime()) ? null : d;
 }
