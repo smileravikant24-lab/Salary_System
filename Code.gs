@@ -3,24 +3,31 @@
 // Google Apps Script (Code.gs)
 // ============================================================
 
-const SHEET_EMPLOYEES  = "Employees";   // Name | Mode | MonthlySalary
-const SHEET_ATTENDANCE = "Attendance";  // Name | Day1 | Day2 | ... (Admin fills this)
-const SHEET_PAYROLL    = "Payroll";     // Name | Bypass | Status | LastUpdated
+// ── Sheet names in THIS spreadsheet (where Code.gs runs) ────
+const SHEET_EMPLOYEES = "Employees"; // Name | Mode | MonthlySalary
+const SHEET_PAYROLL   = "Payroll";   // Name | Bypass | Status | LastUpdated
+
+// ── External Leaves spreadsheet (Attendance System) ──────────
+const LEAVES_SS_ID  = "179U4qy_lPVOV4HtmNHoGfnNy_TgWHhzhxg0Ip-2sR2k";
+const LEAVES_TAB    = "Leaves"; // Tab name visible in screenshot
 
 // ─── HTTP ENTRY POINTS ──────────────────────────────────────
 
 function doGet(e) {
-  const action = (e && e.parameter && e.parameter.action) || "";
+  const p      = (e && e.parameter) || {};
+  const action = p.action || "";
+  const month  = parseInt(p.month) || (new Date().getMonth() + 1);
+  const year   = parseInt(p.year)  || new Date().getFullYear();
   let result;
+
   try {
-    if (action === "getEmployees") {
-      result = getEmployees();
-    } else {
-      result = { error: "Unknown action: " + action };
-    }
+    if      (action === "getEmployees")  result = getEmployees(month, year);
+    else if (action === "getLeaveData")  result = getLeaveData(month, year);
+    else { result = { error: "Unknown action: " + action }; }
   } catch (err) {
     result = { error: err.message };
   }
+
   return ContentService
     .createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
@@ -41,163 +48,194 @@ function doPost(e) {
   } catch (err) {
     result = { error: err.message };
   }
+
   return ContentService
     .createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ─── MAIN DATA FUNCTIONS ─────────────────────────────────────
+// ─── EMPLOYEES + LEAVE MERGE ─────────────────────────────────
 
-// Returns combined employee list: basic info + leaves from Attendance + bypass/status from Payroll
-function getEmployees() {
+// Returns combined list: employee info + approved leaves for month/year + payroll state
+function getEmployees(month, year) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  ensureSheet(ss, SHEET_EMPLOYEES,  ["Name", "Mode", "MonthlySalary"]);
-  ensureSheet(ss, SHEET_PAYROLL,    ["Name", "Bypass", "Status", "LastUpdated"]);
+  ensureSheet(ss, SHEET_EMPLOYEES, ["Name", "Mode", "MonthlySalary"]);
+  ensureSheet(ss, SHEET_PAYROLL,   ["Name", "Bypass", "Status", "LastUpdated"]);
 
-  const empSheet     = ss.getSheetByName(SHEET_EMPLOYEES);
-  const payrollSheet = ss.getSheetByName(SHEET_PAYROLL);
-
-  const empRows     = empSheet.getDataRange().getValues();
-  const payrollRows = payrollSheet.getDataRange().getValues();
+  const empRows     = ss.getSheetByName(SHEET_EMPLOYEES).getDataRange().getValues();
+  const payrollRows = ss.getSheetByName(SHEET_PAYROLL).getDataRange().getValues();
 
   if (empRows.length <= 1) return [];
 
-  // Build payroll map: lowercase name → {bypass, status}
+  // Payroll state map: name_lc → {bypass, status}
   const payrollMap = {};
   for (let i = 1; i < payrollRows.length; i++) {
     const r = payrollRows[i];
-    if (r[0]) payrollMap[String(r[0]).trim().toLowerCase()] = {
-      bypass : parseFloat(r[1]) || 0,
-      status : r[2] || ""
-    };
+    if (r[0]) payrollMap[norm(r[0])] = { bypass: parseFloat(r[1]) || 0, status: r[2] || "" };
   }
 
-  // Calculate leaves per employee from Attendance sheet
-  const leavesMap = calculateAllLeaves(ss);
+  // Leave data for selected month from external sheet
+  const leaveMap = getLeaveMap(month, year); // name_lc → {total, cl, sl, half, details}
 
   const employees = [];
   for (let i = 1; i < empRows.length; i++) {
     const r = empRows[i];
     if (!r[0]) continue;
 
-    const name    = String(r[0]).trim();
-    const mode    = String(r[1]).trim() || "Cash";
-    const salary  = parseFloat(r[2]) || 0;
-    const key     = name.toLowerCase();
-    const pr      = payrollMap[key] || {};
-    const bypass  = pr.bypass !== undefined ? pr.bypass : 0;
-    const status  = pr.status || (mode === "Cash" ? "Pending Cash Approval (MD)" : "Pending Bank Verification");
-    const leaves  = leavesMap[key] || 0;
+    const name   = String(r[0]).trim();
+    const mode   = String(r[1]).trim() || "Cash";
+    const salary = parseFloat(r[2]) || 0;
+    const key    = norm(name);
+    const pr     = payrollMap[key] || {};
+    const lv     = leaveMap[key]   || { total: 0, cl: 0, sl: 0, half: 0, details: [] };
 
-    employees.push({ name, mode, salary, leaves, bypass, status });
+    employees.push({
+      name,
+      mode,
+      salary,
+      leaves       : lv.total,
+      leaveCL      : lv.cl,
+      leaveSL      : lv.sl,
+      leaveHalf    : lv.half,
+      leaveDetails : lv.details,
+      bypass       : pr.bypass !== undefined ? pr.bypass : 0,
+      status       : pr.status || (mode === "Cash" ? "Pending Manager Review" : "Pending Manager Review")
+    });
   }
 
   return employees;
 }
 
-// Read Attendance sheet and return {name_lowercase: totalLeaveDays}
-function calculateAllLeaves(ss) {
-  const sheet = ss.getSheetByName(SHEET_ATTENDANCE);
-  if (!sheet) return {};
+// ─── LEAVE DATA FROM EXTERNAL SHEET ─────────────────────────
 
-  const rows = sheet.getDataRange().getValues();
-  if (rows.length <= 1) return {};
+// Returns per-employee leave summary for a given month/year
+// Only rows where Status column = "Approved" are counted
+function getLeaveData(month, year) {
+  return Object.values(getLeaveMap(month, year));
+}
 
-  const map = {};
+function getLeaveMap(month, year) {
+  let leaveSS, leavesSheet;
+  try {
+    leaveSS     = SpreadsheetApp.openById(LEAVES_SS_ID);
+    leavesSheet = leaveSS.getSheetByName(LEAVES_TAB);
+  } catch(e) {
+    return {}; // External sheet not accessible
+  }
+  if (!leavesSheet) return {};
 
-  // Row 0 = headers (Name, Day1, Day2 …). Rows 1+ = employee data.
+  const rows = leavesSheet.getDataRange().getValues();
+  // Row 0 = headers: Timestamp | Name | Type | Start | End | Reason | Status
+  // Index:              0           1      2      3      4     5        6
+
+  const map = {}; // name_lc → {name, total, cl, sl, half, details}
+
   for (let i = 1; i < rows.length; i++) {
-    const row  = rows[i];
-    if (!row[0]) continue;
+    const row    = rows[i];
+    const name   = String(row[1] || "").trim();
+    const type   = String(row[2] || "").trim(); // CL | SL | 1/2 days
+    const start  = parseDate(row[3]);
+    const end    = parseDate(row[4]) || start;
+    const reason = String(row[5] || "").trim();
+    const status = String(row[6] || "").trim().toLowerCase();
 
-    const name = String(row[0]).trim().toLowerCase();
-    let leaves = 0;
+    if (!name || !start || status !== "approved") continue;
 
-    for (let j = 1; j < row.length; j++) {
-      const val = String(row[j] || "").trim().toLowerCase();
-      if (!val || val === "p" || val === "present" || val === "h" || val === "holiday") continue;
+    const isHalf = type.includes("1/2") || type.toLowerCase().includes("half");
+    const key    = norm(name);
 
-      if (val === "cl" || val === "sl" || val === "el" || val.includes("leave") || val === "a" || val === "absent") {
-        leaves += 1;
-      } else if (val === "1/2" || val === "half" || val === "p+1/2" || val === "1/2+p" || val.includes("half")) {
-        leaves += 0.5;
+    // Count only days that fall in the target month/year
+    let days = 0;
+    if (isHalf) {
+      if (start.getMonth() + 1 === month && start.getFullYear() === year) days = 0.5;
+    } else {
+      const cur = new Date(start);
+      const fin = new Date(end);
+      while (cur <= fin) {
+        if (cur.getMonth() + 1 === month && cur.getFullYear() === year) days += 1;
+        cur.setDate(cur.getDate() + 1);
       }
     }
 
-    map[name] = leaves;
+    if (days === 0) continue;
+
+    if (!map[key]) map[key] = { name, total: 0, cl: 0, sl: 0, half: 0, details: [] };
+
+    const typeLc = type.toUpperCase();
+    if      (isHalf)           map[key].half += days;
+    else if (typeLc === "CL")  map[key].cl   += days;
+    else if (typeLc === "SL")  map[key].sl   += days;
+    else                       map[key].cl   += days; // unknown type → treat as CL
+
+    map[key].total += days;
+    map[key].details.push({
+      type   : isHalf ? "1/2 Day" : typeLc,
+      start  : fmtDate(start),
+      end    : fmtDate(end),
+      days,
+      reason
+    });
   }
+
   return map;
 }
 
-// Save bypass + status changes to Payroll sheet (called on any status/bypass change)
+// ─── PAYROLL SAVE ────────────────────────────────────────────
+
 function savePayroll(employees) {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ensureSheet(ss, SHEET_PAYROLL, ["Name", "Bypass", "Status", "LastUpdated"]);
   const now   = Utilities.formatDate(new Date(), "Asia/Kolkata", "dd-MM-yyyy HH:mm");
 
-  // Build existing map to preserve rows for employees not in payload
-  const existingData  = sheet.getDataRange().getValues();
-  const existingMap   = {};
+  const existingData = sheet.getDataRange().getValues();
+  const existingMap  = {};
   for (let i = 1; i < existingData.length; i++) {
-    if (existingData[i][0]) existingMap[String(existingData[i][0]).trim().toLowerCase()] = i + 1; // 1-indexed row number
+    if (existingData[i][0]) existingMap[norm(existingData[i][0])] = i + 1;
   }
 
   employees.forEach(emp => {
-    const key    = emp.name.toLowerCase();
-    const bypass = emp.bypass !== undefined ? parseFloat(emp.bypass) || 0 : 0;
+    const key    = norm(emp.name);
+    const bypass = parseFloat(emp.bypass) || 0;
     const status = emp.status || "";
-
     if (existingMap[key]) {
-      // Update existing row
-      const row = existingMap[key];
-      sheet.getRange(row, 2, 1, 3).setValues([[bypass, status, now]]);
+      sheet.getRange(existingMap[key], 2, 1, 3).setValues([[bypass, status, now]]);
     } else {
-      // Append new row
       sheet.appendRow([emp.name, bypass, status, now]);
     }
   });
 }
 
-// Add employee to Employees sheet + initialize Payroll row
+// ─── EMPLOYEE CRUD ────────────────────────────────────────────
+
 function addEmployee(emp) {
   const ss       = SpreadsheetApp.getActiveSpreadsheet();
   const empSheet = ensureSheet(ss, SHEET_EMPLOYEES, ["Name", "Mode", "MonthlySalary"]);
-
-  // Check duplicate
   const existing = empSheet.getDataRange().getValues();
   for (let i = 1; i < existing.length; i++) {
-    if (String(existing[i][0]).trim().toLowerCase() === emp.name.toLowerCase()) return; // already exists
+    if (norm(existing[i][0]) === norm(emp.name)) return; // duplicate
   }
-
   empSheet.appendRow([emp.name, emp.mode, emp.salary]);
 
   const payrollSheet = ensureSheet(ss, SHEET_PAYROLL, ["Name", "Bypass", "Status", "LastUpdated"]);
   const now = Utilities.formatDate(new Date(), "Asia/Kolkata", "dd-MM-yyyy HH:mm");
-  const defaultStatus = emp.mode === "Cash" ? "Pending Cash Approval (MD)" : "Pending Bank Verification";
-  payrollSheet.appendRow([emp.name, 0, defaultStatus, now]);
+  payrollSheet.appendRow([emp.name, 0, "Pending Manager Review", now]);
 }
 
-// Update employee name/mode/salary in Employees sheet
 function updateEmployee(oldName, updatedData) {
   const ss       = SpreadsheetApp.getActiveSpreadsheet();
   const empSheet = ss.getSheetByName(SHEET_EMPLOYEES);
   if (!empSheet) return;
-
   const rows = empSheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]).trim().toLowerCase() === oldName.toLowerCase()) {
+    if (norm(rows[i][0]) === norm(oldName)) {
       empSheet.getRange(i + 1, 1, 1, 3).setValues([[updatedData.name, updatedData.mode, updatedData.salary]]);
-
-      // Also rename in Payroll sheet if name changed
-      if (oldName.toLowerCase() !== updatedData.name.toLowerCase()) {
-        const paySheet = ss.getSheetByName(SHEET_PAYROLL);
-        if (paySheet) {
-          const payRows = paySheet.getDataRange().getValues();
-          for (let j = 1; j < payRows.length; j++) {
-            if (String(payRows[j][0]).trim().toLowerCase() === oldName.toLowerCase()) {
-              paySheet.getRange(j + 1, 1).setValue(updatedData.name);
-            }
+      if (norm(oldName) !== norm(updatedData.name)) {
+        const ps = ss.getSheetByName(SHEET_PAYROLL);
+        if (ps) {
+          const pr = ps.getDataRange().getValues();
+          for (let j = 1; j < pr.length; j++) {
+            if (norm(pr[j][0]) === norm(oldName)) ps.getRange(j + 1, 1).setValue(updatedData.name);
           }
         }
       }
@@ -206,22 +244,48 @@ function updateEmployee(oldName, updatedData) {
   }
 }
 
-// Delete employee from Employees and Payroll sheets
 function deleteEmployee(empName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  [SHEET_EMPLOYEES, SHEET_PAYROLL].forEach(name => {
-    const sheet = ss.getSheetByName(name);
+  [SHEET_EMPLOYEES, SHEET_PAYROLL].forEach(sheetName => {
+    const sheet = ss.getSheetByName(sheetName);
     if (!sheet) return;
     const rows = sheet.getDataRange().getValues();
     for (let i = rows.length - 1; i >= 1; i--) {
-      if (String(rows[i][0]).trim().toLowerCase() === empName.toLowerCase()) {
-        sheet.deleteRow(i + 1);
-      }
+      if (norm(rows[i][0]) === norm(empName)) sheet.deleteRow(i + 1);
     }
   });
 }
 
-// ─── HELPER ──────────────────────────────────────────────────
+// ─── HELPERS ─────────────────────────────────────────────────
+
+function norm(s) { return String(s || "").trim().toLowerCase(); }
+
+function fmtDate(d) {
+  return Utilities.formatDate(d, "Asia/Kolkata", "dd-MM-yyyy");
+}
+
+// Parses Date objects and common string formats (YYYY-MM-DD, DD-MM-YYYY)
+function parseDate(val) {
+  if (!val) return null;
+  if (val instanceof Date && !isNaN(val.getTime())) return val;
+  const s = String(val).trim();
+  if (!s) return null;
+
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = new Date(s.substring(0, 10));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // DD-MM-YYYY
+  if (/^\d{2}-\d{2}-\d{4}/.test(s)) {
+    const parts = s.split("-");
+    const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // Fallback
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 function ensureSheet(ss, name, headers) {
   let sheet = ss.getSheetByName(name);

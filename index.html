@@ -243,6 +243,29 @@
       </span>
     </div>
 
+    <!-- Month + Employee Filter Bar -->
+    <div style="background:white; border-radius:12px; padding:13px 20px; margin-bottom:14px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+      <span style="font-size:11px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.5px;">Filters:</span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label style="font-size:12px; color:#666; font-weight:600; white-space:nowrap;">📅 Month</label>
+        <select id="filterMonth" onchange="loadDataFromSheet()" style="padding:7px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none;">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+        <select id="filterYear" onchange="loadDataFromSheet()" style="padding:7px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none;"></select>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:200px; max-width:340px;">
+        <label style="font-size:12px; color:#666; font-weight:600; white-space:nowrap;">👤 Employee</label>
+        <input type="text" id="empSearch" placeholder="Search by name..." oninput="renderAll()"
+          style="width:100%; padding:7px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none;">
+      </div>
+      <button class="btn btn-ghost sm" onclick="clearFilters()" style="margin-left:auto;">✕ Clear</button>
+    </div>
+
     <!-- Controls -->
     <div class="ctrl-bar">
       <div class="tabs">
@@ -276,7 +299,7 @@
           <tr>
             <th style="text-align:left; padding-left:16px;">Employee Name</th>
             <th>Mode</th>
-            <th>Leaves<br><small style="font-weight:400;">(From Attendance)</small></th>
+            <th>Leaves<br><small style="font-weight:400;">(Approved — from Sheet)</small></th>
             <th>Monthly Salary</th>
             <th>Per Day</th>
             <th>Leave Deduction</th>
@@ -292,6 +315,34 @@
       </table>
     </div>
 
+  </div>
+</div>
+
+<!-- ═══ LEAVE DETAILS MODAL ═══════════════════════════════════ -->
+<div id="leaveModal" class="modal">
+  <div class="modal-box" style="max-width:560px;">
+    <h3 id="leaveModalTitle" style="margin:0 0 4px;">Leave Details</h3>
+    <p id="leaveModalSub" style="margin:0 0 18px; font-size:13px; color:#888;"></p>
+    <!-- Summary chips -->
+    <div id="leaveSummaryChips" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;"></div>
+    <!-- Detail table -->
+    <div style="overflow-x:auto; border-radius:8px; border:1px solid #eee;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr style="background:#f8f9fa;">
+            <th style="padding:10px 12px; text-align:left; color:#555; font-weight:700; border-bottom:1px solid #eee;">Type</th>
+            <th style="padding:10px 12px; text-align:center; color:#555; font-weight:700; border-bottom:1px solid #eee;">Start</th>
+            <th style="padding:10px 12px; text-align:center; color:#555; font-weight:700; border-bottom:1px solid #eee;">End</th>
+            <th style="padding:10px 12px; text-align:center; color:#555; font-weight:700; border-bottom:1px solid #eee;">Days</th>
+            <th style="padding:10px 12px; text-align:left; color:#555; font-weight:700; border-bottom:1px solid #eee;">Reason</th>
+          </tr>
+        </thead>
+        <tbody id="leaveDetailBody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:18px; text-align:right;">
+      <button class="btn btn-ghost" onclick="closeLeaveModal()">Close</button>
+    </div>
   </div>
 </div>
 
@@ -338,6 +389,19 @@
   let employeeData = [];
   let activeTab    = "ALL";
 
+  // ─── INIT YEAR SELECTOR ─────────────────────────────────────
+  (function initYearSelector() {
+    const now = new Date();
+    const sel = document.getElementById('filterYear');
+    for (let y = now.getFullYear() + 1; y >= 2024; y--) {
+      const o = document.createElement('option');
+      o.value = y; o.text = y;
+      if (y === now.getFullYear()) o.selected = true;
+      sel.appendChild(o);
+    }
+    document.getElementById('filterMonth').value = now.getMonth() + 1;
+  })();
+
   // ─── TOAST ──────────────────────────────────────────────────
   function showToast(msg, type="info") {
     const t = document.createElement('div');
@@ -377,24 +441,42 @@
   }
 
   // ─── DATA LOAD ──────────────────────────────────────────────
-  function loadDataFromSheet() {
-    document.getElementById('payrollBody').innerHTML =
-      `<tr><td colspan="10" style="padding:40px;color:#aaa;">⏳ Syncing with Google Sheet...</td></tr>`;
-    setAttPill("warn", "⏳ Syncing attendance...");
+  function getSelectedMonthYear() {
+    return {
+      month : parseInt(document.getElementById('filterMonth').value) || (new Date().getMonth() + 1),
+      year  : parseInt(document.getElementById('filterYear').value)  || new Date().getFullYear()
+    };
+  }
 
-    fetch(`${SCRIPT_URL}?action=getEmployees`)
+  function clearFilters() {
+    const now = new Date();
+    document.getElementById('filterMonth').value = now.getMonth() + 1;
+    document.getElementById('filterYear').value  = now.getFullYear();
+    document.getElementById('empSearch').value   = "";
+    loadDataFromSheet();
+  }
+
+  function loadDataFromSheet() {
+    const { month, year } = getSelectedMonthYear();
+    const monthNames = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    document.getElementById('payrollBody').innerHTML =
+      `<tr><td colspan="10" style="padding:40px;color:#aaa;">⏳ Loading ${monthNames[month]} ${year} leave data from Google Sheet...</td></tr>`;
+    setAttPill("warn", "⏳ Syncing...");
+
+    fetch(`${SCRIPT_URL}?action=getEmployees&month=${month}&year=${year}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) throw new Error(data.error);
         employeeData = Array.isArray(data) ? data : [];
         const totalLeaves = employeeData.reduce((s, e) => s + (parseFloat(e.leaves) || 0), 0);
+        const empWithLeaves = employeeData.filter(e => (parseFloat(e.leaves) || 0) > 0).length;
         if (totalLeaves > 0) {
-          setAttPill("ok", `✅ Attendance linked — ${totalLeaves} leave-days`);
+          setAttPill("ok", `✅ ${empWithLeaves} employees have leaves — ${totalLeaves} days (${monthNames[month]} ${year})`);
         } else {
-          setAttPill("warn", "📋 Attendance sheet (0 leaves yet)");
+          setAttPill("warn", `📋 No approved leaves found for ${monthNames[month]} ${year}`);
         }
         renderAll();
-        showToast(`✅ ${employeeData.length} records loaded from Google Sheet`, "success");
+        showToast(`✅ ${employeeData.length} employees loaded — ${monthNames[month]} ${year}`, "success");
       })
       .catch(err => {
         console.error(err);
@@ -569,16 +651,27 @@
   }
 
   function renderTable() {
-    const tbody = document.getElementById('payrollBody');
-    const wd    = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
+    const tbody  = document.getElementById('payrollBody');
+    const wd     = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
+    const search = (document.getElementById('empSearch').value || "").trim().toLowerCase();
+    const { month, year } = getSelectedMonthYear();
+    const monthNames = ["","January","February","March","April","May","June","July","August","September","October","November","December"];
 
     let list = employeeData;
     if (activeTab === "MY_ACTION")   list = employeeData.filter(e => needsMyAction(e));
     if (activeTab === "IN_PROGRESS") list = employeeData.filter(e => { const f = getFlowInfo(e); return f.state !== "done" && f.state !== "rejected"; });
     if (activeTab === "APPROVED")    list = employeeData.filter(e => getFlowInfo(e).state === "done");
 
+    // Employee name search filter
+    if (search) list = list.filter(e => e.name.toLowerCase().includes(search));
+
     if (list.length === 0) {
-      const msgs = { ALL:"No employees yet. Click '+ Add Employee' to start.", MY_ACTION:"✅ Nothing pending for you right now!", IN_PROGRESS:"No payments in progress.", APPROVED:"No fully approved payments yet." };
+      const msgs = {
+        ALL       : search ? `No employee matching "${search}".` : "No employees yet. Click '+ Add Employee' to start.",
+        MY_ACTION : "✅ Nothing pending for you right now!",
+        IN_PROGRESS: "No payments in progress.",
+        APPROVED  : "No fully approved payments yet."
+      };
       tbody.innerHTML = `<tr><td colspan="10" style="padding:40px;color:#aaa;">${msgs[activeTab]||"No records."}</td></tr>`;
       return;
     }
@@ -586,18 +679,40 @@
     tbody.innerHTML = list.map(emp => {
       const actualIdx = employeeData.findIndex(e => e.name === emp.name);
       const perDay    = (emp.salary / wd).toFixed(2);
-      const autoDed   = ((parseFloat(perDay)) * (parseFloat(emp.leaves) || 0)).toFixed(2);
+      const totalLv   = parseFloat(emp.leaves) || 0;
+      const autoDed   = (parseFloat(perDay) * totalLv).toFixed(2);
       const useByp    = emp.bypass !== undefined && emp.bypass !== "" && !isNaN(emp.bypass) && parseFloat(emp.bypass) > 0;
       const effDed    = useByp ? parseFloat(emp.bypass).toFixed(2) : autoDed;
       const finalAmt  = (emp.salary - parseFloat(effDed)).toFixed(2);
       const fi        = getFlowInfo(emp);
       const myAct     = needsMyAction(emp);
       const rowCls    = myAct ? "action-row" : "";
-      const leavesStr = parseFloat(emp.leaves) || 0;
-      const lvBadge   = leavesStr > 0
-        ? `<span class="chip chip-leaves">📅 ${leavesStr} day${leavesStr > 1 ? 's' : ''}</span>`
-        : `<span class="chip chip-zero">0 days</span>`;
       const canBypass = currentUser.role === "Admin" || currentUser.role === "Manager";
+
+      // Leave breakdown badge
+      const cl   = parseFloat(emp.leaveCL)   || 0;
+      const sl   = parseFloat(emp.leaveSL)   || 0;
+      const half = parseFloat(emp.leaveHalf) || 0;
+      const hasDetails = Array.isArray(emp.leaveDetails) && emp.leaveDetails.length > 0;
+
+      let lvBadge;
+      if (totalLv > 0) {
+        const parts = [];
+        if (cl   > 0) parts.push(`<span style="color:#c62828;">CL:${cl}</span>`);
+        if (sl   > 0) parts.push(`<span style="color:#1a56db;">SL:${sl}</span>`);
+        if (half > 0) parts.push(`<span style="color:#e65100;">½:${half}</span>`);
+        lvBadge = `
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+            <span class="chip chip-leaves" style="cursor:${hasDetails?'pointer':'default'};"
+              ${hasDetails ? `onclick="openLeaveModal(${actualIdx})"` : ''}>
+              📅 ${totalLv} day${totalLv > 1 ? 's' : ''}
+            </span>
+            <span style="font-size:10px;">${parts.join(' · ')}</span>
+            ${hasDetails ? `<span style="font-size:10px;color:var(--blue);cursor:pointer;" onclick="openLeaveModal(${actualIdx})">📋 Details</span>` : ''}
+          </div>`;
+      } else {
+        lvBadge = `<span class="chip chip-zero">0 days</span>`;
+      }
 
       return `
         <tr class="${rowCls}">
@@ -625,6 +740,62 @@
           </td>
         </tr>`;
     }).join('');
+  }
+
+  // ─── LEAVE DETAILS MODAL ────────────────────────────────────
+  function openLeaveModal(idx) {
+    const emp = employeeData[idx];
+    const { month, year } = getSelectedMonthYear();
+    const monthNames = ["","January","February","March","April","May","June","July","August","September","October","November","December"];
+
+    document.getElementById('leaveModalTitle').innerText = `Leave Details — ${emp.name}`;
+    document.getElementById('leaveModalSub').innerText   = `${monthNames[month]} ${year} · Approved Leaves Only`;
+
+    // Summary chips
+    const cl   = parseFloat(emp.leaveCL)   || 0;
+    const sl   = parseFloat(emp.leaveSL)   || 0;
+    const half = parseFloat(emp.leaveHalf) || 0;
+    const total = parseFloat(emp.leaves)   || 0;
+
+    const chipColors = { total:"#1a73e8", cl:"#d93025", sl:"#1e8e3e", half:"#e37400" };
+    document.getElementById('leaveSummaryChips').innerHTML = [
+      { lbl:"Total Leaves", val: total, clr: chipColors.total },
+      { lbl:"CL (Casual)",  val: cl,   clr: chipColors.cl    },
+      { lbl:"SL (Sick)",    val: sl,   clr: chipColors.sl    },
+      { lbl:"Half Day",     val: half, clr: chipColors.half  }
+    ].map(c => `
+      <div style="background:${c.clr}18; border:1.5px solid ${c.clr}; border-radius:8px; padding:8px 14px; text-align:center; min-width:80px;">
+        <div style="font-size:18px; font-weight:700; color:${c.clr};">${c.val}</div>
+        <div style="font-size:10px; font-weight:700; color:${c.clr}; opacity:.8;">${c.lbl}</div>
+      </div>`).join('');
+
+    // Detail rows
+    const details = Array.isArray(emp.leaveDetails) ? emp.leaveDetails : [];
+    if (details.length === 0) {
+      document.getElementById('leaveDetailBody').innerHTML =
+        `<tr><td colspan="5" style="padding:20px;color:#aaa;text-align:center;">No leave entries for this month.</td></tr>`;
+    } else {
+      const typeColor = { CL:"#d93025", SL:"#1a56db", "1/2 Day":"#e37400" };
+      document.getElementById('leaveDetailBody').innerHTML = details.map((d, i) => {
+        const clr = typeColor[d.type] || "#555";
+        return `
+          <tr style="border-bottom:1px solid #f0f2f5;">
+            <td style="padding:10px 12px;text-align:left;">
+              <span style="background:${clr}18;color:${clr};font-weight:700;font-size:11px;padding:3px 8px;border-radius:6px;">${d.type}</span>
+            </td>
+            <td style="padding:10px 12px;text-align:center;font-size:12px;">${d.start}</td>
+            <td style="padding:10px 12px;text-align:center;font-size:12px;">${d.end}</td>
+            <td style="padding:10px 12px;text-align:center;font-weight:700;color:#333;">${d.days}</td>
+            <td style="padding:10px 12px;text-align:left;font-size:11px;color:#666;">${d.reason || '—'}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    document.getElementById('leaveModal').style.display = 'flex';
+  }
+
+  function closeLeaveModal() {
+    document.getElementById('leaveModal').style.display = 'none';
   }
 
   // ─── ACTIONS ────────────────────────────────────────────────
