@@ -99,8 +99,8 @@ function getEmployees_(month, year) {
       leaveSL: leave.sl,
       leaveHalf: leave.half,
       leaveDetails: leave.details,
-      leaveOverride: saved.leaveOverride === "" || saved.leaveOverride == null ? "" : Number(saved.leaveOverride),
-      deductionOverride: saved.deductionOverride === "" || saved.deductionOverride == null ? "" : Number(saved.deductionOverride),
+      leaveOverride: saved.leaveOverride > 0 ? Number(saved.leaveOverride) : "",
+      deductionOverride: saved.deductionOverride > 0 ? Number(saved.deductionOverride) : "",
       status: saved.status || "Pending Manager Review"
     };
   });
