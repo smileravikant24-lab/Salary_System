@@ -161,10 +161,10 @@
       <label>Select Account</label>
       <select id="loginEmail">
         <option value="" disabled selected>Choose your account...</option>
-        <option value="mis@satijapaper.com">Admin — mis@satijapaper.com</option>
-        <option value="mukesh.shukla@satijapaper.com">Manager — mukesh.shukla</option>
-        <option value="pranavsatija@satijapaper.com">MD / Boss — pranavsatija</option>
-        <option value="satijapaper@gmail.com">Accountant — satijapaper@gmail.com</option>
+        <option value="mis@satijapaper.com">Admin — MIS / Satija Paper</option>
+        <option value="mukesh.shukla@satijapaper.com">Manager — Mukesh Shukla</option>
+        <option value="pranavsatija@satijapaper.com">MD / Boss — Pranav Satija</option>
+        <option value="satijapaper@gmail.com">Accountant — Satija Paper Accounts</option>
       </select>
     </div>
     <div class="lf">
@@ -353,6 +353,12 @@
 
 <script>
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCMMCoNXoqHtwlockPpqX6VL6AKE2KkE9rABihkYyUJNFNbNL2ZxeJhpu2L-38XKNC3A/exec";
+  const USER_DISPLAY_NAMES = {
+    "mis@satijapaper.com": "MIS / Satija Paper",
+    "mukesh.shukla@satijapaper.com": "Mukesh Shukla",
+    "pranavsatija@satijapaper.com": "Pranav Satija",
+    "satijapaper@gmail.com": "Satija Paper Accounts"
+  };
 
   let currentUser  = null;
   let employeeData = [];
@@ -396,10 +402,10 @@
       .then(response => response.json())
       .then(result => {
         if (!result.success) throw new Error(result.error || "Wrong password!");
-        currentUser = { email, role: result.role };
+        currentUser = { email, role: result.role, displayName: USER_DISPLAY_NAMES[email] || email };
         document.getElementById('loginSection').style.display = 'none';
         document.getElementById('dashSection').style.display  = 'block';
-        document.getElementById('welcomeTitle').innerText     = `Welcome, ${email.split('@')[0]}`;
+        document.getElementById('welcomeTitle').innerText     = `Welcome, ${currentUser.displayName}`;
         document.getElementById('headerSub').innerText        = email;
         document.getElementById('roleDisplay').className      = `role-badge role-${currentUser.role}`;
         document.getElementById('roleDisplay').innerText      = currentUser.role;
