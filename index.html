@@ -303,14 +303,15 @@
             <th>Monthly Salary</th>
             <th>Per Day</th>
             <th>Leave Deduction</th>
-            <th>Bypass / Override</th>
+            <th>Day-Based Amount</th>
+            <th>Bypass Amount</th>
             <th>Final Payable</th>
             <th>Approval Flow Status</th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody id="payrollBody">
-          <tr><td colspan="10" style="padding:40px; color:#aaa;">⏳ Loading data from Google Sheet...</td></tr>
+          <tr><td colspan="11" style="padding:40px; color:#aaa;">⏳ Loading data from Google Sheet...</td></tr>
         </tbody>
       </table>
     </div>
@@ -460,7 +461,7 @@
     const { month, year } = getSelectedMonthYear();
     const monthNames = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     document.getElementById('payrollBody').innerHTML =
-      `<tr><td colspan="10" style="padding:40px;color:#aaa;">⏳ Loading ${monthNames[month]} ${year} leave data from Google Sheet...</td></tr>`;
+      `<tr><td colspan="11" style="padding:40px;color:#aaa;">⏳ Loading ${monthNames[month]} ${year} leave data from Google Sheet...</td></tr>`;
     setAttPill("warn", "⏳ Syncing...");
 
     fetch(`${SCRIPT_URL}?action=getEmployees&month=${month}&year=${year}`)
@@ -482,7 +483,7 @@
         console.error(err);
         employeeData = [];
         document.getElementById('payrollBody').innerHTML =
-          `<tr><td colspan="10" style="padding:40px;color:var(--red);">⚠️ Could not connect to Google Sheet.<br><small style="color:#999;">${err.message}</small></td></tr>`;
+          `<tr><td colspan="11" style="padding:40px;color:var(--red);">⚠️ Could not connect to Google Sheet.<br><small style="color:#999;">${err.message}</small></td></tr>`;
         setAttPill("err", "❌ Sheet not connected");
         showToast("Sheet connection failed!", "error");
       });
@@ -618,10 +619,7 @@
     let netTotal   = 0;
 
     employeeData.forEach(e => {
-      const perDay  = e.salary / wd;
-      const autoDed = perDay * (parseFloat(e.leaves) || 0);
-      const useByp  = e.bypass !== undefined && e.bypass !== "" && !isNaN(e.bypass) && parseFloat(e.bypass) > 0;
-      netTotal += e.salary - (useByp ? parseFloat(e.bypass) : autoDed);
+      netTotal += getPayrollAmounts(e, wd).finalAmount;
     });
 
     document.getElementById('sTotal').innerText    = total;
@@ -672,18 +670,18 @@
         IN_PROGRESS: "No payments in progress.",
         APPROVED  : "No fully approved payments yet."
       };
-      tbody.innerHTML = `<tr><td colspan="10" style="padding:40px;color:#aaa;">${msgs[activeTab]||"No records."}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" style="padding:40px;color:#aaa;">${msgs[activeTab]||"No records."}</td></tr>`;
       return;
     }
 
     tbody.innerHTML = list.map(emp => {
       const actualIdx = employeeData.findIndex(e => e.name === emp.name);
-      const perDay    = (emp.salary / wd).toFixed(2);
-      const totalLv   = parseFloat(emp.leaves) || 0;
-      const autoDed   = (parseFloat(perDay) * totalLv).toFixed(2);
-      const useByp    = emp.bypass !== undefined && emp.bypass !== "" && !isNaN(emp.bypass) && parseFloat(emp.bypass) > 0;
-      const effDed    = useByp ? parseFloat(emp.bypass).toFixed(2) : autoDed;
-      const finalAmt  = (emp.salary - parseFloat(effDed)).toFixed(2);
+      const amounts   = getPayrollAmounts(emp, wd);
+      const perDay    = amounts.perDay.toFixed(2);
+      const totalLv   = amounts.leaveDays;
+      const autoDed   = amounts.leaveDeduction.toFixed(2);
+      const dayAmount = amounts.dayBasedAmount.toFixed(2);
+      const finalAmt  = amounts.finalAmount.toFixed(2);
       const fi        = getFlowInfo(emp);
       const myAct     = needsMyAction(emp);
       const rowCls    = myAct ? "action-row" : "";
@@ -714,6 +712,10 @@
         lvBadge = `<span class="chip chip-zero">0 days</span>`;
       }
 
+      const bypassValue = emp.bypass !== undefined && emp.bypass !== "" && !isNaN(emp.bypass)
+        ? emp.bypass
+        : "";
+
       return `
         <tr class="${rowCls}">
           <td class="emp-name">
@@ -722,12 +724,13 @@
           </td>
           <td><span class="chip ${emp.mode==='Cash'?'chip-cash':'chip-bank'}">${emp.mode}</span></td>
           <td>${lvBadge}</td>
-          <td>₹${emp.salary.toLocaleString('en-IN')}</td>
+          <td>₹${Number(emp.salary || 0).toLocaleString('en-IN')}</td>
           <td>₹${perDay}</td>
           <td class="ded-cell">-₹${autoDed}</td>
+          <td>₹${parseFloat(dayAmount).toLocaleString('en-IN')}</td>
           <td>
-            <input type="number" class="bypass-inp" value="${emp.bypass||''}" placeholder="${autoDed}"
-              title="Enter custom override (overrides auto deduction)"
+            <input type="number" class="bypass-inp" min="0" step="0.01" value="${bypassValue}" placeholder="${dayAmount}"
+              title="Enter a final payable amount to bypass day-based calculation"
               onchange="updateBypass(${actualIdx},this.value)"
               ${canBypass ? '' : 'disabled'}>
           </td>
@@ -814,9 +817,32 @@
   }
 
   function updateBypass(idx, val) {
-    employeeData[idx].bypass = val === "" ? 0 : parseFloat(val);
+    if (val === "") {
+      employeeData[idx].bypass = "";
+    } else {
+      const amount = parseFloat(val);
+      if (!Number.isFinite(amount) || amount < 0) {
+        showToast("Please enter a valid non-negative amount.", "error");
+        renderAll();
+        return;
+      }
+      employeeData[idx].bypass = amount;
+    }
     syncPayrollState();
     renderAll();
+  }
+
+  function getPayrollAmounts(emp, workingDays) {
+    const salary = Number(emp.salary) || 0;
+    const leaveDays = Number(emp.leaves) || 0;
+    const perDay = workingDays > 0 ? salary / workingDays : 0;
+    const leaveDeduction = perDay * leaveDays;
+    const dayBasedAmount = salary - leaveDeduction;
+    const hasBypass = emp.bypass !== undefined && emp.bypass !== "" &&
+      Number.isFinite(Number(emp.bypass)) && Number(emp.bypass) >= 0;
+    const finalAmount = hasBypass ? Number(emp.bypass) : dayBasedAmount;
+
+    return { perDay, leaveDays, leaveDeduction, dayBasedAmount, finalAmount };
   }
 
   // ─── MODAL ──────────────────────────────────────────────────
@@ -857,7 +883,7 @@
     }
 
     if (editIdx === "") {
-      employeeData.push({ name, mode, salary, leaves:0, bypass:0, status:"Pending Manager Review" });
+      employeeData.push({ name, mode, salary, leaves:0, bypass:"", status:"Pending Manager Review" });
       postToBackend({ action:"addEmployee", data:{ name, mode, salary } });
       showToast("Employee added! Leaves will auto-load from Attendance sheet.", "success");
     } else {
