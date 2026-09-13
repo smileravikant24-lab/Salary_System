@@ -646,7 +646,8 @@
       const fi        = getFlowInfo(emp);
       const myAct     = needsMyAction(emp);
       const rowCls    = myAct ? "action-row" : "";
-      const canBypass = currentUser.role === "Admin" || currentUser.role === "Manager";
+      const canBypass = currentUser.role === "Admin" ||
+        currentUser.role === "Manager" || currentUser.role === "MD";
 
       // Leave breakdown badge
       const cl   = parseFloat(emp.leaveCL)   || 0;
