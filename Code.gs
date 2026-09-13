@@ -60,7 +60,7 @@ function getEmployees_(month, year) {
     if (payrollRows[i][0]) {
       payrollMap[norm_(payrollRows[i][0])] = {
         leaveOverride: payrollRows[i][1],
-        amountOverride: payrollRows[i][2],
+        deductionOverride: payrollRows[i][2],
         status: payrollRows[i][3] || ""
       };
     }
@@ -100,7 +100,7 @@ function getEmployees_(month, year) {
       leaveHalf: leave.half,
       leaveDetails: leave.details,
       leaveOverride: saved.leaveOverride === "" || saved.leaveOverride == null ? "" : Number(saved.leaveOverride),
-      amountOverride: saved.amountOverride === "" || saved.amountOverride == null ? "" : Number(saved.amountOverride),
+      deductionOverride: saved.deductionOverride === "" || saved.deductionOverride == null ? "" : Number(saved.deductionOverride),
       status: saved.status || "Pending Manager Review"
     };
   });
@@ -141,7 +141,7 @@ function savePayroll_(employees) {
     const values = [
       employee.name,
       employee.leaveOverride === "" || employee.leaveOverride == null ? "" : Number(employee.leaveOverride),
-      employee.amountOverride === "" || employee.amountOverride == null ? "" : Number(employee.amountOverride),
+      employee.deductionOverride === "" || employee.deductionOverride == null ? "" : Number(employee.deductionOverride),
       employee.status || "",
       now
     ];
@@ -240,8 +240,12 @@ function payrollSheet_(ss) {
       sheet.getRange(2, 2, migrated.length, 2).setValues(migrated);
     }
   }
+  if (headers[2] === "AmountOverride") {
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) sheet.getRange(2, 3, lastRow - 1, 1).clearContent();
+  }
   if (headers[1] !== "LeaveOverride") sheet.getRange(1, 2).setValue("LeaveOverride");
-  if (headers[2] !== "AmountOverride") sheet.getRange(1, 3).setValue("AmountOverride");
+  if (headers[2] !== "DeductionOverride") sheet.getRange(1, 3).setValue("DeductionOverride");
   return sheet;
 }
 

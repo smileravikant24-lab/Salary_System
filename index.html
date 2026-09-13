@@ -275,10 +275,10 @@
           <tr>
             <th style="text-align:left; padding-left:16px;">Employee Name</th>
             <th>Mode</th>
-            <th>Leave Days<br><small style="font-weight:400;">(Editable)</small></th>
+            <th>Leave Days<br><small style="font-weight:400;">(Override)</small></th>
             <th>Monthly Salary</th>
             <th>Per Day</th>
-            <th>Leave Deduction</th>
+            <th>Leave Deduction<br><small style="font-weight:400;">(Editable)</small></th>
             <th>Day-Based Amount</th>
             <th>Final Payable</th>
             <th>Approval Flow Status</th>
@@ -641,7 +641,6 @@
       const amounts   = getPayrollAmounts(emp, wd);
       const perDay    = amounts.perDay.toFixed(2);
       const totalLv   = amounts.leaveDays;
-      const autoDed   = amounts.leaveDeduction.toFixed(2);
       const dayAmount = amounts.dayBasedAmount.toFixed(2);
       const finalAmt  = amounts.finalAmount.toFixed(2);
       const fi        = getFlowInfo(emp);
@@ -675,9 +674,7 @@
       }
 
       const effectiveLeave = amounts.leaveDays;
-      const hasAmountOverride = emp.amountOverride !== undefined && emp.amountOverride !== "" &&
-        Number.isFinite(Number(emp.amountOverride));
-      const amountValue = hasAmountOverride ? Number(emp.amountOverride).toFixed(2) : dayAmount;
+      const deductionValue = amounts.leaveDeduction.toFixed(2);
 
       return `
         <tr class="${rowCls}">
@@ -694,13 +691,13 @@
           </td>
           <td>₹${Number(emp.salary || 0).toLocaleString('en-IN')}</td>
           <td>₹${perDay}</td>
-          <td class="ded-cell">-₹${autoDed}</td>
-          <td>
-            <input type="number" class="bypass-inp" min="0" step="0.01" value="${amountValue}"
-              title="Edit calculated day-based amount"
-              onchange="updateAmountOverride(${actualIdx},this.value)"
+          <td class="ded-cell">
+            <input type="number" class="bypass-inp" min="0" step="0.01" value="${deductionValue}"
+              title="Edit leave deduction amount"
+              onchange="updateDeductionOverride(${actualIdx},this.value)"
               ${canBypass ? '' : 'disabled'}>
           </td>
+          <td>₹${parseFloat(dayAmount).toLocaleString('en-IN')}</td>
           <td><span class="final-amt">₹${parseFloat(finalAmt).toLocaleString('en-IN')}</span></td>
           <td>${flowHTML(emp)}</td>
           <td>
@@ -795,17 +792,17 @@
     renderAll();
   }
 
-  function updateAmountOverride(idx, val) {
+  function updateDeductionOverride(idx, val) {
     if (val === "") {
-      employeeData[idx].amountOverride = "";
+      employeeData[idx].deductionOverride = "";
     } else {
-      const amount = parseFloat(val);
-      if (!Number.isFinite(amount) || amount < 0) {
+      const deduction = parseFloat(val);
+      if (!Number.isFinite(deduction) || deduction < 0) {
         showToast("Please enter a valid non-negative amount.", "error");
         renderAll();
         return;
       }
-      employeeData[idx].amountOverride = amount;
+      employeeData[idx].deductionOverride = deduction;
     }
     syncPayrollState();
     renderAll();
@@ -817,11 +814,12 @@
       ? Math.max(0, Number(emp.leaveOverride))
       : Number(emp.leaves) || 0;
     const perDay = workingDays > 0 ? salary / workingDays : 0;
-    const leaveDeduction = perDay * leaveDays;
+    const leaveDeduction = Number.isFinite(Number(emp.deductionOverride)) &&
+      Number(emp.deductionOverride) >= 0
+      ? Number(emp.deductionOverride)
+      : perDay * leaveDays;
     const dayBasedAmount = salary - leaveDeduction;
-    const hasAmountOverride = emp.amountOverride !== undefined && emp.amountOverride !== "" &&
-      Number.isFinite(Number(emp.amountOverride)) && Number(emp.amountOverride) >= 0;
-    const finalAmount = hasAmountOverride ? Number(emp.amountOverride) : dayBasedAmount;
+    const finalAmount = dayBasedAmount;
 
     return { perDay, leaveDays, leaveDeduction, dayBasedAmount, finalAmount };
   }
@@ -864,7 +862,7 @@
     }
 
     if (editIdx === "") {
-      employeeData.push({ name, mode, salary, leaves:0, leaveOverride:"", amountOverride:"", status:"Pending Manager Review" });
+      employeeData.push({ name, mode, salary, leaves:0, leaveOverride:"", deductionOverride:"", status:"Pending Manager Review" });
       postToBackend({ action:"addEmployee", data:{ name, mode, salary } });
       showToast("Employee added! Leaves will auto-load from Attendance sheet.", "success");
     } else {
