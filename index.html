@@ -303,6 +303,7 @@
             <th>Monthly Salary</th>
             <th>Per Day</th>
             <th>Leave Deduction</th>
+            <th>Days Worked</th>
             <th>Day-Based Amount</th>
             <th>Bypass Amount</th>
             <th>Final Payable</th>
@@ -311,7 +312,7 @@
           </tr>
         </thead>
         <tbody id="payrollBody">
-          <tr><td colspan="11" style="padding:40px; color:#aaa;">⏳ Loading data from Google Sheet...</td></tr>
+          <tr><td colspan="12" style="padding:40px; color:#aaa;">⏳ Loading data from Google Sheet...</td></tr>
         </tbody>
       </table>
     </div>
@@ -377,14 +378,7 @@
 </div>
 
 <script>
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzwVOn33wNEGU5BP6ligdjr0JjxioeDLceSBf6a6DgVy0FYK48SHOepkC8PTXERgw28/exec";
-
-  const USERS = {
-    "mis@satijapaper.com":           { role:"Admin",      pass:"admin123"  },
-    "mukesh.shukla@satijapaper.com": { role:"Manager",    pass:"mukesh123" },
-    "pranavsatija@satijapaper.com":  { role:"MD",         pass:"pranav123" },
-    "satijapaper@gmail.com":         { role:"Accountant", pass:"acc123"    }
-  };
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCMMCoNXoqHtwlockPpqX6VL6AKE2KkE9rABihkYyUJNFNbNL2ZxeJhpu2L-38XKNC3A/exec";
 
   let currentUser  = null;
   let employeeData = [];
@@ -418,20 +412,29 @@
     const pass  = document.getElementById('loginPass').value;
     if (!email) { showToast("Please select your account!", "error"); return; }
     if (!pass)  { showToast("Please enter your password!", "error"); return; }
-    if (!USERS[email] || USERS[email].pass !== pass) {
-      showToast("Wrong password! Please try again.", "error"); return;
-    }
-    currentUser = { email, role: USERS[email].role };
-    document.getElementById('loginSection').style.display = 'none';
-    document.getElementById('dashSection').style.display  = 'block';
-    document.getElementById('welcomeTitle').innerText     = `Welcome, ${email.split('@')[0]}`;
-    document.getElementById('headerSub').innerText        = email;
-    document.getElementById('roleDisplay').className      = `role-badge role-${currentUser.role}`;
-    document.getElementById('roleDisplay').innerText      = currentUser.role;
-    const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Manager';
-    document.getElementById('addEmpBtn').style.display    = canEdit ? 'inline-flex' : 'none';
-    loadDataFromSheet();
-    showToast(`Login successful! Welcome, ${currentUser.role}.`, "success");
+    showToast("Checking credentials...", "info");
+    fetch(SCRIPT_URL, {
+      method: "POST",
+      mode: "cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "login", email, password: pass })
+    })
+      .then(response => response.json())
+      .then(result => {
+        if (!result.success) throw new Error(result.error || "Wrong password!");
+        currentUser = { email, role: result.role };
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('dashSection').style.display  = 'block';
+        document.getElementById('welcomeTitle').innerText     = `Welcome, ${email.split('@')[0]}`;
+        document.getElementById('headerSub').innerText        = email;
+        document.getElementById('roleDisplay').className      = `role-badge role-${currentUser.role}`;
+        document.getElementById('roleDisplay').innerText      = currentUser.role;
+        const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Manager';
+        document.getElementById('addEmpBtn').style.display    = canEdit ? 'inline-flex' : 'none';
+        loadDataFromSheet();
+        showToast(`Login successful! Welcome, ${currentUser.role}.`, "success");
+      })
+      .catch(error => showToast(error.message || "Login failed. Please try again.", "error"));
   }
 
   function handleLogout() {
@@ -461,7 +464,7 @@
     const { month, year } = getSelectedMonthYear();
     const monthNames = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     document.getElementById('payrollBody').innerHTML =
-      `<tr><td colspan="11" style="padding:40px;color:#aaa;">⏳ Loading ${monthNames[month]} ${year} leave data from Google Sheet...</td></tr>`;
+    `<tr><td colspan="12" style="padding:40px;color:#aaa;">⏳ Loading ${monthNames[month]} ${year} leave data from Google Sheet...</td></tr>`;
     setAttPill("warn", "⏳ Syncing...");
 
     fetch(`${SCRIPT_URL}?action=getEmployees&month=${month}&year=${year}`)
@@ -483,7 +486,7 @@
         console.error(err);
         employeeData = [];
         document.getElementById('payrollBody').innerHTML =
-          `<tr><td colspan="11" style="padding:40px;color:var(--red);">⚠️ Could not connect to Google Sheet.<br><small style="color:#999;">${err.message}</small></td></tr>`;
+          `<tr><td colspan="12" style="padding:40px;color:var(--red);">⚠️ Could not connect to Google Sheet.<br><small style="color:#999;">${err.message}</small></td></tr>`;
         setAttPill("err", "❌ Sheet not connected");
         showToast("Sheet connection failed!", "error");
       });
@@ -670,7 +673,7 @@
         IN_PROGRESS: "No payments in progress.",
         APPROVED  : "No fully approved payments yet."
       };
-      tbody.innerHTML = `<tr><td colspan="11" style="padding:40px;color:#aaa;">${msgs[activeTab]||"No records."}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="12" style="padding:40px;color:#aaa;">${msgs[activeTab]||"No records."}</td></tr>`;
       return;
     }
 
@@ -680,6 +683,7 @@
       const perDay    = amounts.perDay.toFixed(2);
       const totalLv   = amounts.leaveDays;
       const autoDed   = amounts.leaveDeduction.toFixed(2);
+      const daysWorked = amounts.daysWorked;
       const dayAmount = amounts.dayBasedAmount.toFixed(2);
       const finalAmt  = amounts.finalAmount.toFixed(2);
       const fi        = getFlowInfo(emp);
@@ -712,9 +716,8 @@
         lvBadge = `<span class="chip chip-zero">0 days</span>`;
       }
 
-      const bypassValue = emp.bypass !== undefined && emp.bypass !== "" && !isNaN(emp.bypass)
-        ? emp.bypass
-        : "";
+      const hasBypass = emp.bypass !== undefined && emp.bypass !== "" && !isNaN(emp.bypass);
+      const bypassValue = hasBypass ? emp.bypass : dayAmount;
 
       return `
         <tr class="${rowCls}">
@@ -727,9 +730,15 @@
           <td>₹${Number(emp.salary || 0).toLocaleString('en-IN')}</td>
           <td>₹${perDay}</td>
           <td class="ded-cell">-₹${autoDed}</td>
+          <td>
+            <input type="number" class="bypass-inp" min="0" step="0.5" value="${daysWorked}"
+              title="Enter payable days for this employee"
+              onchange="updateDays(${actualIdx},this.value)"
+              ${canBypass ? '' : 'disabled'}>
+          </td>
           <td>₹${parseFloat(dayAmount).toLocaleString('en-IN')}</td>
           <td>
-            <input type="number" class="bypass-inp" min="0" step="0.01" value="${bypassValue}" placeholder="${dayAmount}"
+            <input type="number" class="bypass-inp" min="0" step="0.01" value="${bypassValue}"
               title="Enter a final payable amount to bypass day-based calculation"
               onchange="updateBypass(${actualIdx},this.value)"
               ${canBypass ? '' : 'disabled'}>
@@ -832,17 +841,32 @@
     renderAll();
   }
 
+  function updateDays(idx, val) {
+    const days = parseFloat(val);
+    if (!Number.isFinite(days) || days < 0) {
+      showToast("Please enter valid non-negative payable days.", "error");
+      renderAll();
+      return;
+    }
+    employeeData[idx].days = days;
+    syncPayrollState();
+    renderAll();
+  }
+
   function getPayrollAmounts(emp, workingDays) {
     const salary = Number(emp.salary) || 0;
     const leaveDays = Number(emp.leaves) || 0;
     const perDay = workingDays > 0 ? salary / workingDays : 0;
     const leaveDeduction = perDay * leaveDays;
-    const dayBasedAmount = salary - leaveDeduction;
+    const daysWorked = Number.isFinite(Number(emp.days))
+      ? Math.max(0, Number(emp.days))
+      : Math.max(0, workingDays - leaveDays);
+    const dayBasedAmount = perDay * daysWorked;
     const hasBypass = emp.bypass !== undefined && emp.bypass !== "" &&
       Number.isFinite(Number(emp.bypass)) && Number(emp.bypass) >= 0;
     const finalAmount = hasBypass ? Number(emp.bypass) : dayBasedAmount;
 
-    return { perDay, leaveDays, leaveDeduction, dayBasedAmount, finalAmount };
+    return { perDay, leaveDays, leaveDeduction, daysWorked, dayBasedAmount, finalAmount };
   }
 
   // ─── MODAL ──────────────────────────────────────────────────
@@ -883,7 +907,7 @@
     }
 
     if (editIdx === "") {
-      employeeData.push({ name, mode, salary, leaves:0, bypass:"", status:"Pending Manager Review" });
+      employeeData.push({ name, mode, salary, leaves:0, days:"", bypass:"", status:"Pending Manager Review" });
       postToBackend({ action:"addEmployee", data:{ name, mode, salary } });
       showToast("Employee added! Leaves will auto-load from Attendance sheet.", "success");
     } else {
@@ -914,9 +938,12 @@
   function postToBackend(payload) {
     fetch(SCRIPT_URL, {
       method:"POST", mode:"no-cors",
-      headers:{ "Content-Type":"application/json" },
+      headers:{ "Content-Type":"text/plain;charset=utf-8" },
       body: JSON.stringify(payload)
-    }).catch(e => console.error("Sync error:", e));
+    }).catch(e => {
+      console.error("Sync error:", e);
+      showToast("Google Sheet save failed. Please try again.", "error");
+    });
   }
 
   // ─── EXPORT ─────────────────────────────────────────────────
