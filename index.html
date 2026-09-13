@@ -14,15 +14,11 @@
     }
     * { box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; color: #333; }
-
-    /* ─── TOAST ─── */
     .toast { position: fixed; top: 20px; right: 20px; padding: 13px 20px; border-radius: 10px; color: white; font-weight: 600; font-size: 13px; z-index: 3000; box-shadow: 0 4px 16px rgba(0,0,0,0.2); animation: slideIn .3s ease-out; max-width: 320px; }
     @keyframes slideIn { from { transform: translateX(120%); } to { transform: translateX(0); } }
     .toast.success { background: var(--green); }
     .toast.error   { background: var(--red); }
     .toast.info    { background: var(--blue); }
-
-    /* ─── LOGIN ─── */
     #loginSection { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%); padding: 20px; }
     .login-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 100%; max-width: 420px; }
     .login-logo { text-align: center; margin-bottom: 28px; }
@@ -34,8 +30,6 @@
     .lf select:focus, .lf input:focus { border-color: var(--blue); }
     .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; }
     .btn-login:hover { opacity: .9; }
-
-    /* ─── DASHBOARD LAYOUT ─── */
     #dashSection { display: none; }
     .dash-header { background: white; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 200; gap: 12px; flex-wrap: wrap; }
     .header-left h2 { margin: 0; font-size: 18px; color: var(--blue); }
@@ -52,11 +46,7 @@
     .att-err  { background: #fce8e6; color: var(--red); }
     .btn-logout { background: none; border: 1.5px solid #ddd; padding: 7px 14px; border-radius: 8px; color: #666; cursor: pointer; font-size: 13px; font-weight: 600; }
     .btn-logout:hover { border-color: var(--red); color: var(--red); }
-
-    /* ─── BODY ─── */
     .dash-body { padding: 20px 24px; max-width: 1900px; margin: 0 auto; }
-
-    /* ─── STATS ─── */
     .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
     .stat-card { background: white; padding: 20px 22px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid; }
     .stat-card.c-blue   { border-color: var(--blue); }
@@ -66,15 +56,11 @@
     .stat-lbl { font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
     .stat-val { font-size: 28px; font-weight: 700; color: #222; line-height: 1; }
     .stat-sub { font-size: 11px; color: #bbb; margin-top: 5px; }
-
-    /* ─── ROLE BANNER ─── */
     .role-banner { background: white; border-radius: 12px; padding: 16px 20px; margin-bottom: 18px; display: flex; align-items: center; gap: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1.5px solid #e8f0fe; flex-wrap: wrap; }
     .b-icon { font-size: 30px; flex-shrink: 0; }
     .b-text h3 { margin: 0 0 4px; font-size: 14px; color: var(--blue); }
     .b-text p  { margin: 0; font-size: 13px; color: #666; }
     .b-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
-
-    /* ─── CONTROLS ─── */
     .ctrl-bar { background: white; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
     .tabs { display: flex; gap: 4px; background: #f0f2f5; border-radius: 8px; padding: 4px; }
     .tab { padding: 7px 14px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: #777; background: transparent; transition: all .2s; white-space: nowrap; }
@@ -83,8 +69,6 @@
     .ctrl-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .wd-wrap { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; }
     .wd-wrap input { width: 52px; padding: 6px 8px; border: 1.5px solid #ddd; border-radius: 6px; text-align: center; font-size: 13px; outline: none; }
-
-    /* ─── BUTTONS ─── */
     .btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
     .btn:hover { opacity: .85; }
     .btn-blue   { background: var(--blue); color: white; }
@@ -93,8 +77,6 @@
     .btn-orange { background: var(--orange); color: white; }
     .btn-ghost  { background: #f1f3f4; color: #555; border: 1.5px solid #e0e0e0; }
     .sm { padding: 5px 10px; font-size: 11px; border-radius: 6px; }
-
-    /* ─── TABLE ─── */
     .tbl-wrap { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 900px; }
     th { background: var(--blue); color: white; padding: 12px 10px; text-align: center; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; white-space: nowrap; }
@@ -112,8 +94,6 @@
     .final-amt { color: var(--green); font-size: 13px; font-weight: 700; }
     .bypass-inp { width: 90px; padding: 5px 8px; text-align: center; border: 1.5px solid #ffb300; border-radius: 6px; font-size: 12px; background: #fff8e1; font-weight: 600; }
     .bypass-inp:disabled { background: #f5f5f5; border-color: #eee; cursor: not-allowed; }
-
-    /* ─── FLOW INDICATOR ─── */
     .flow-row { display: flex; align-items: center; justify-content: center; gap: 0; }
     .fstep { display: flex; flex-direction: column; align-items: center; gap: 3px; }
     .fdot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
@@ -129,8 +109,6 @@
     .fline { width: 16px; height: 2px; margin-bottom: 14px; flex-shrink: 0; }
     .fline.done    { background: var(--green); }
     .fline.pending { background: #ddd; }
-
-    /* ─── MODAL ─── */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
     .modal-box { background: white; padding: 30px; border-radius: 14px; width: 100%; max-width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
     .modal-box h3 { margin: 0 0 22px; color: var(--blue); font-size: 18px; }
@@ -140,8 +118,6 @@
     .mf input:focus, .mf select:focus { border-color: var(--blue); }
     .info-box { background: #e8f0fe; border-left: 4px solid var(--blue); padding: 10px 12px; border-radius: 6px; font-size: 12px; color: #174ea6; margin-bottom: 14px; }
     .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
-
-    /* ─── RESPONSIVE ─── */
     @media (max-width:900px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
     @media (max-width:560px) { .stats-row { grid-template-columns: 1fr; } .dash-body { padding: 14px 14px; } }
   </style>
@@ -150,7 +126,6 @@
 
 <div id="toastContainer"></div>
 
-<!-- ═══ LOGIN ═══════════════════════════════════════════════════ -->
 <div id="loginSection">
   <div class="login-box">
     <div class="login-logo">
@@ -161,10 +136,10 @@
       <label>Select Account</label>
       <select id="loginEmail">
         <option value="" disabled selected>Choose your account...</option>
-        <option value="mis@satijapaper.com">Admin — mis@satijapaper.com</option>
-        <option value="mukesh.shukla@satijapaper.com">Manager — mukesh.shukla</option>
-        <option value="pranavsatija@satijapaper.com">MD / Boss — pranavsatija</option>
-        <option value="satijapaper@gmail.com">Accountant — satijapaper@gmail.com</option>
+        <option value="mis@satijapaper.com">Admin - Khushi Painter</option>
+        <option value="mukesh.shukla@satijapaper.com">Manager - Mukesh Shukla</option>
+        <option value="pranavsatija@satijapaper.com">MD - Pranav Satija</option>
+        <option value="satijapaper@gmail.com">Accountant - Sandeep Dhawan</option>
       </select>
     </div>
     <div class="lf">
@@ -176,7 +151,6 @@
   </div>
 </div>
 
-<!-- ═══ DASHBOARD ════════════════════════════════════════════════ -->
 <div id="dashSection">
 
   <!-- Sticky Header -->
@@ -218,7 +192,7 @@
       </div>
     </div>
 
-    <!-- Month + Employee Filter Bar -->
+  
     <div style="background:white; border-radius:12px; padding:13px 20px; margin-bottom:14px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
       <span style="font-size:11px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.5px;">Filters:</span>
       <div style="display:flex; align-items:center; gap:8px;">
@@ -241,7 +215,7 @@
       <button class="btn btn-ghost sm" onclick="clearFilters()" style="margin-left:auto;">✕ Clear</button>
     </div>
 
-    <!-- Controls -->
+  
     <div class="ctrl-bar">
       <div class="tabs">
         <button class="tab active" onclick="setTab('ALL',this)">
@@ -268,7 +242,7 @@
       </div>
     </div>
 
-    <!-- Table -->
+  
     <div class="tbl-wrap">
       <table id="payrollTable">
         <thead>
@@ -294,12 +268,11 @@
   </div>
 </div>
 
-<!-- ═══ LEAVE DETAILS MODAL ═══════════════════════════════════ -->
 <div id="leaveModal" class="modal">
   <div class="modal-box" style="max-width:560px;">
     <h3 id="leaveModalTitle" style="margin:0 0 4px;">Leave Details</h3>
     <p id="leaveModalSub" style="margin:0 0 18px; font-size:13px; color:#888;"></p>
-    <!-- Summary chips -->
+ 
     <div id="leaveSummaryChips" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;"></div>
     <!-- Detail table -->
     <div style="overflow-x:auto; border-radius:8px; border:1px solid #eee;">
@@ -322,7 +295,6 @@
   </div>
 </div>
 
-<!-- ═══ ADD / EDIT MODAL ════════════════════════════════════════ -->
 <div id="empModal" class="modal">
   <div class="modal-box">
     <h3 id="modalTitle">Add Employee</h3>
@@ -358,7 +330,6 @@
   let employeeData = [];
   let activeTab    = "ALL";
 
-  // ─── INIT YEAR SELECTOR ─────────────────────────────────────
   (function initYearSelector() {
     const now = new Date();
     const sel = document.getElementById('filterYear');
@@ -371,7 +342,6 @@
     document.getElementById('filterMonth').value = now.getMonth() + 1;
   })();
 
-  // ─── TOAST ──────────────────────────────────────────────────
   function showToast(msg, type="info") {
     const t = document.createElement('div');
     t.className = `toast ${type}`;
@@ -380,7 +350,6 @@
     setTimeout(() => t.remove(), 3500);
   }
 
-  // ─── AUTH ───────────────────────────────────────────────────
   function handleLogin() {
     const email = document.getElementById('loginEmail').value;
     const pass  = document.getElementById('loginPass').value;
@@ -418,7 +387,6 @@
     document.getElementById('dashSection').style.display  = 'none';
   }
 
-  // ─── DATA LOAD ──────────────────────────────────────────────
   function getSelectedMonthYear() {
     return {
       month : parseInt(document.getElementById('filterMonth').value) || (new Date().getMonth() + 1),
@@ -472,8 +440,6 @@
     el.innerText = text;
   }
 
-  // ─── FLOW LOGIC ─────────────────────────────────────────────
-  // step: 0=Manager, 1=Accountant(bank only)/MD(cash), 2=MD(bank), 99=Done, -1=Rejected
   function getFlowInfo(emp) {
     const s = (emp.status || "").toLowerCase();
     if (s.includes("reject"))                                          return { step:-1, state:"rejected" };
@@ -502,7 +468,6 @@
     return false;
   }
 
-  // Visual flow HTML for each row
   function flowHTML(emp) {
     const fi    = getFlowInfo(emp);
     const isCash = emp.mode === "Cash";
@@ -528,7 +493,6 @@
     return h;
   }
 
-  // Role-specific action buttons
   function actionBtns(emp, idx) {
     const role = currentUser.role;
     const mode = emp.mode;
@@ -545,7 +509,6 @@
 
     let b = "";
 
-    // Manager / Admin
     if (canEdit) {
       if (fi.step === 0) {
         const fwdStatus = mode === "Cash"
@@ -559,12 +522,11 @@
       return b;
     }
 
-    // Accountant
     if (role === "Accountant" && mode === "Bank" && fi.step === 1) {
       return `<button class="btn btn-green sm" onclick="forwardEmp(${idx},'Verified by Accountant (Pending MD)')">✓ Verify & Forward</button>`;
     }
 
-    // MD
+  
     if (role === "MD") {
       const canAct = (mode === "Cash" && fi.step === 1) || (mode === "Bank" && fi.step === 2);
       if (canAct) {
@@ -576,7 +538,7 @@
     return `<span style="font-size:11px;color:#bbb;">View Only</span>`;
   }
 
-  // ─── TAB ────────────────────────────────────────────────────
+
   function setTab(tab, el) {
     activeTab = tab;
     document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
@@ -584,9 +546,8 @@
     renderAll();
   }
 
-  // ─── RENDER ─────────────────────────────────────────────────
-  function renderAll() { renderStats(); renderTable(); }
 
+  function renderAll() { renderStats(); renderTable(); }
   function renderStats() {
     const wd       = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
     const total    = employeeData.length;
@@ -649,7 +610,6 @@
       const canBypass = currentUser.role === "Admin" ||
         currentUser.role === "Manager" || currentUser.role === "MD";
 
-      // Leave breakdown badge
       const cl   = parseFloat(emp.leaveCL)   || 0;
       const sl   = parseFloat(emp.leaveSL)   || 0;
       const half = parseFloat(emp.leaveHalf) || 0;
@@ -710,7 +670,6 @@
     }).join('');
   }
 
-  // ─── LEAVE DETAILS MODAL ────────────────────────────────────
   function openLeaveModal(idx) {
     const emp = employeeData[idx];
     const { month, year } = getSelectedMonthYear();
@@ -719,7 +678,6 @@
     document.getElementById('leaveModalTitle').innerText = `Leave Details — ${emp.name}`;
     document.getElementById('leaveModalSub').innerText   = `${monthNames[month]} ${year} · Approved Leaves Only`;
 
-    // Summary chips
     const cl   = parseFloat(emp.leaveCL)   || 0;
     const sl   = parseFloat(emp.leaveSL)   || 0;
     const half = parseFloat(emp.leaveHalf) || 0;
@@ -737,7 +695,6 @@
         <div style="font-size:10px; font-weight:700; color:${c.clr}; opacity:.8;">${c.lbl}</div>
       </div>`).join('');
 
-    // Detail rows
     const details = Array.isArray(emp.leaveDetails) ? emp.leaveDetails : [];
     if (details.length === 0) {
       document.getElementById('leaveDetailBody').innerHTML =
@@ -766,7 +723,6 @@
     document.getElementById('leaveModal').style.display = 'none';
   }
 
-  // ─── ACTIONS ────────────────────────────────────────────────
   function forwardEmp(idx, status) {
     employeeData[idx].status = status;
     syncPayrollState();
@@ -830,7 +786,6 @@
     return { perDay, leaveDays, leaveDeduction, dayBasedAmount, finalAmount };
   }
 
-  // ─── MODAL ──────────────────────────────────────────────────
   function openModal() {
     document.getElementById('modalTitle').innerText = "Add New Employee";
     document.getElementById('editIndex').value      = "";
@@ -891,7 +846,6 @@
     showToast("Employee deleted.", "success");
   }
 
-  // ─── BACKEND SYNC ───────────────────────────────────────────
   function syncPayrollState() {
     postToBackend({ action:"savePayroll", data:employeeData });
   }
@@ -907,7 +861,6 @@
     });
   }
 
-  // ─── EXPORT ─────────────────────────────────────────────────
   function exportExcel() {
     try {
       const wb = XLSX.utils.table_to_book(document.getElementById('payrollTable'), { sheet:"Payroll" });
