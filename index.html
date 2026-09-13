@@ -811,11 +811,15 @@
 
   function getPayrollAmounts(emp, workingDays) {
     const salary = Number(emp.salary) || 0;
-    const leaveDays = Number.isFinite(Number(emp.leaveOverride))
+    const hasLeaveOverride = emp.leaveOverride !== undefined && emp.leaveOverride !== "" &&
+      Number.isFinite(Number(emp.leaveOverride)) && Number(emp.leaveOverride) >= 0;
+    const leaveDays = hasLeaveOverride
       ? Math.max(0, Number(emp.leaveOverride))
       : Number(emp.leaves) || 0;
     const perDay = workingDays > 0 ? salary / workingDays : 0;
-    const leaveDeduction = Number.isFinite(Number(emp.deductionOverride)) &&
+    const hasDeductionOverride = emp.deductionOverride !== undefined && emp.deductionOverride !== "" &&
+      Number.isFinite(Number(emp.deductionOverride)) && Number(emp.deductionOverride) >= 0;
+    const leaveDeduction = hasDeductionOverride &&
       Number(emp.deductionOverride) >= 0
       ? Number(emp.deductionOverride)
       : perDay * leaveDays;
