@@ -59,8 +59,8 @@ function getEmployees_(month, year) {
   for (let i = 1; i < payrollRows.length; i++) {
     if (payrollRows[i][0]) {
       payrollMap[norm_(payrollRows[i][0])] = {
-        bypass: payrollRows[i][1],
-        days: payrollRows[i][2],
+        leaveOverride: payrollRows[i][1],
+        amountOverride: payrollRows[i][2],
         status: payrollRows[i][3] || ""
       };
     }
@@ -99,8 +99,8 @@ function getEmployees_(month, year) {
       leaveSL: leave.sl,
       leaveHalf: leave.half,
       leaveDetails: leave.details,
-      bypass: saved.bypass === "" || saved.bypass == null ? "" : Number(saved.bypass),
-      days: saved.days === "" || saved.days == null ? "" : Number(saved.days),
+      leaveOverride: saved.leaveOverride === "" || saved.leaveOverride == null ? "" : Number(saved.leaveOverride),
+      amountOverride: saved.amountOverride === "" || saved.amountOverride == null ? "" : Number(saved.amountOverride),
       status: saved.status || "Pending Manager Review"
     };
   });
@@ -140,8 +140,8 @@ function savePayroll_(employees) {
     }
     const values = [
       employee.name,
-      employee.bypass === "" || employee.bypass == null ? "" : Number(employee.bypass),
-      employee.days === "" || employee.days == null ? "" : Number(employee.days),
+      employee.leaveOverride === "" || employee.leaveOverride == null ? "" : Number(employee.leaveOverride),
+      employee.amountOverride === "" || employee.amountOverride == null ? "" : Number(employee.amountOverride),
       employee.status || "",
       now
     ];
@@ -232,10 +232,16 @@ function ensureSheet_(ss, name, headers) {
 function payrollSheet_(ss) {
   const sheet = ensureSheet_(ss, PAYROLL_TAB, ["Name", "Bypass", "Days", "Status", "LastUpdated"]);
   const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0];
-  if (headers[2] !== "Days") {
-    sheet.insertColumnAfter(2);
-    sheet.getRange(1, 3).setValue("Days");
+  if (headers[1] === "Bypass" || headers[2] === "Days") {
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      const oldValues = sheet.getRange(2, 2, lastRow - 1, 2).getValues();
+      const migrated = oldValues.map(function (row) { return ["", row[0]]; });
+      sheet.getRange(2, 2, migrated.length, 2).setValues(migrated);
+    }
   }
+  if (headers[1] !== "LeaveOverride") sheet.getRange(1, 2).setValue("LeaveOverride");
+  if (headers[2] !== "AmountOverride") sheet.getRange(1, 3).setValue("AmountOverride");
   return sheet;
 }
 

@@ -54,7 +54,7 @@
     .btn-logout:hover { border-color: var(--red); color: var(--red); }
 
     /* ─── BODY ─── */
-    .dash-body { padding: 20px 24px; max-width: 1700px; margin: 0 auto; }
+    .dash-body { padding: 20px 24px; max-width: 1900px; margin: 0 auto; }
 
     /* ─── STATS ─── */
     .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
@@ -218,31 +218,6 @@
       </div>
     </div>
 
-    <!-- Role Banner -->
-    <div class="role-banner">
-      <div class="b-icon" id="bIcon">👤</div>
-      <div class="b-text">
-        <h3 id="bTitle">Loading...</h3>
-        <p id="bDesc">Please wait while data is loading from Google Sheet.</p>
-      </div>
-      <div class="b-actions">
-        <button class="btn btn-blue" id="addEmpBtn" onclick="openModal()" style="display:none;">+ Add Employee</button>
-      </div>
-    </div>
-
-    <!-- ── Flow Legend ── -->
-    <div style="background:white; border-radius:10px; padding:12px 20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,0.05); display:flex; align-items:center; gap:24px; flex-wrap:wrap; font-size:12px;">
-      <span style="font-weight:700; color:#555;">Approval Flow:</span>
-      <span><span style="color:var(--orange);">💰 Cash:</span> Manager → MD Approve</span>
-      <span><span style="color:var(--blue);">🏦 Bank:</span> Manager → Accountant Verify → MD Approve</span>
-      <span style="margin-left:auto; display:flex; gap:14px; flex-wrap:wrap;">
-        <span><span class="fdot done" style="display:inline-flex;width:16px;height:16px;font-size:9px;">✓</span> Done</span>
-        <span><span class="fdot active" style="display:inline-flex;width:16px;height:16px;font-size:9px;">●</span> Active</span>
-        <span><span class="fdot pending" style="display:inline-flex;width:16px;height:16px;font-size:9px;">○</span> Waiting</span>
-        <span><span class="fdot rejected" style="display:inline-flex;width:16px;height:16px;font-size:9px;">✗</span> Rejected</span>
-      </span>
-    </div>
-
     <!-- Month + Employee Filter Bar -->
     <div style="background:white; border-radius:12px; padding:13px 20px; margin-bottom:14px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
       <span style="font-size:11px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.5px;">Filters:</span>
@@ -289,6 +264,7 @@
         </div>
         <button class="btn btn-green sm" onclick="exportExcel()">📥 Export</button>
         <button class="btn btn-ghost sm" onclick="loadDataFromSheet()">🔄 Refresh</button>
+        <button class="btn btn-blue sm" id="addEmpBtn" onclick="openModal()" style="display:none;">+ Add Employee</button>
       </div>
     </div>
 
@@ -299,20 +275,18 @@
           <tr>
             <th style="text-align:left; padding-left:16px;">Employee Name</th>
             <th>Mode</th>
-            <th>Leaves<br><small style="font-weight:400;">(Approved — from Sheet)</small></th>
+            <th>Leave Days<br><small style="font-weight:400;">(Editable)</small></th>
             <th>Monthly Salary</th>
             <th>Per Day</th>
             <th>Leave Deduction</th>
-            <th>Days Worked</th>
             <th>Day-Based Amount</th>
-            <th>Bypass Amount</th>
             <th>Final Payable</th>
             <th>Approval Flow Status</th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody id="payrollBody">
-          <tr><td colspan="12" style="padding:40px; color:#aaa;">⏳ Loading data from Google Sheet...</td></tr>
+          <tr><td colspan="10" style="padding:40px; color:#aaa;">⏳ Loading data from Google Sheet...</td></tr>
         </tbody>
       </table>
     </div>
@@ -464,7 +438,7 @@
     const { month, year } = getSelectedMonthYear();
     const monthNames = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     document.getElementById('payrollBody').innerHTML =
-    `<tr><td colspan="12" style="padding:40px;color:#aaa;">⏳ Loading ${monthNames[month]} ${year} leave data from Google Sheet...</td></tr>`;
+    `<tr><td colspan="10" style="padding:40px;color:#aaa;">⏳ Loading ${monthNames[month]} ${year} leave data from Google Sheet...</td></tr>`;
     setAttPill("warn", "⏳ Syncing...");
 
     fetch(`${SCRIPT_URL}?action=getEmployees&month=${month}&year=${year}`)
@@ -486,7 +460,7 @@
         console.error(err);
         employeeData = [];
         document.getElementById('payrollBody').innerHTML =
-          `<tr><td colspan="12" style="padding:40px;color:var(--red);">⚠️ Could not connect to Google Sheet.<br><small style="color:#999;">${err.message}</small></td></tr>`;
+          `<tr><td colspan="10" style="padding:40px;color:var(--red);">⚠️ Could not connect to Google Sheet.<br><small style="color:#999;">${err.message}</small></td></tr>`;
         setAttPill("err", "❌ Sheet not connected");
         showToast("Sheet connection failed!", "error");
       });
@@ -611,7 +585,7 @@
   }
 
   // ─── RENDER ─────────────────────────────────────────────────
-  function renderAll() { renderStats(); renderBanner(); renderTable(); }
+  function renderAll() { renderStats(); renderTable(); }
 
   function renderStats() {
     const wd       = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
@@ -636,21 +610,6 @@
     document.getElementById('tApprv').innerText = approved;
   }
 
-  function renderBanner() {
-    const role   = currentUser.role;
-    const myPend = employeeData.filter(e => needsMyAction(e)).length;
-    const maps   = {
-      Admin     : { icon:"🛡️", title:`Admin — ${myPend} item(s) pending your action`, desc: myPend > 0 ? `Review and forward ${myPend} employee(s). Cash → MD, Bank → Accountant.` : "All forwarded. Monitor flow below." },
-      Manager   : { icon:"👔", title:`Manager — ${myPend} employee(s) to forward`, desc: myPend > 0 ? `Review salary details then click "Send to MD" (Cash) or "Send to Acct" (Bank).` : "All forwarded to next stage. ✅" },
-      Accountant: { icon:"📒", title:`Accountant — ${myPend} Bank payment(s) to verify`, desc: myPend > 0 ? `Verify ${myPend} bank payment(s) and mark verified for MD approval.` : "No pending bank verifications. All clear! ✅" },
-      MD        : { icon:"👑", title:`MD — ${myPend} payment(s) awaiting final approval`, desc: myPend > 0 ? `${myPend} salary payment(s) ready for your Approve / Reject.` : "All payments signed off! Nothing pending. ✅" }
-    };
-    const bd = maps[role] || maps.Admin;
-    document.getElementById('bIcon').innerText  = bd.icon;
-    document.getElementById('bTitle').innerText = bd.title;
-    document.getElementById('bDesc').innerText  = bd.desc;
-  }
-
   function renderTable() {
     const tbody  = document.getElementById('payrollBody');
     const wd     = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
@@ -673,7 +632,7 @@
         IN_PROGRESS: "No payments in progress.",
         APPROVED  : "No fully approved payments yet."
       };
-      tbody.innerHTML = `<tr><td colspan="12" style="padding:40px;color:#aaa;">${msgs[activeTab]||"No records."}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" style="padding:40px;color:#aaa;">${msgs[activeTab]||"No records."}</td></tr>`;
       return;
     }
 
@@ -683,7 +642,6 @@
       const perDay    = amounts.perDay.toFixed(2);
       const totalLv   = amounts.leaveDays;
       const autoDed   = amounts.leaveDeduction.toFixed(2);
-      const daysWorked = amounts.daysWorked;
       const dayAmount = amounts.dayBasedAmount.toFixed(2);
       const finalAmt  = amounts.finalAmount.toFixed(2);
       const fi        = getFlowInfo(emp);
@@ -716,31 +674,31 @@
         lvBadge = `<span class="chip chip-zero">0 days</span>`;
       }
 
-      const hasBypass = emp.bypass !== undefined && emp.bypass !== "" && !isNaN(emp.bypass);
-      const bypassValue = hasBypass ? emp.bypass : dayAmount;
+      const effectiveLeave = amounts.leaveDays;
+      const hasAmountOverride = emp.amountOverride !== undefined && emp.amountOverride !== "" &&
+        Number.isFinite(Number(emp.amountOverride));
+      const amountValue = hasAmountOverride ? Number(emp.amountOverride).toFixed(2) : dayAmount;
 
       return `
         <tr class="${rowCls}">
           <td class="emp-name">
             ${emp.name}
-            ${myAct ? '<span style="color:var(--orange);font-size:10px;font-weight:700;margin-left:6px;">⬤ YOUR TURN</span>' : ''}
           </td>
           <td><span class="chip ${emp.mode==='Cash'?'chip-cash':'chip-bank'}">${emp.mode}</span></td>
-          <td>${lvBadge}</td>
+          <td>
+            <input type="number" class="bypass-inp" min="0" step="0.5" value="${effectiveLeave}"
+              title="Override leave days used for payroll"
+              onchange="updateLeaveOverride(${actualIdx},this.value)"
+              ${canBypass ? '' : 'disabled'}>
+            <div style="margin-top:4px;">${lvBadge}</div>
+          </td>
           <td>₹${Number(emp.salary || 0).toLocaleString('en-IN')}</td>
           <td>₹${perDay}</td>
           <td class="ded-cell">-₹${autoDed}</td>
           <td>
-            <input type="number" class="bypass-inp" min="0" step="0.5" value="${daysWorked}"
-              title="Enter payable days for this employee"
-              onchange="updateDays(${actualIdx},this.value)"
-              ${canBypass ? '' : 'disabled'}>
-          </td>
-          <td>₹${parseFloat(dayAmount).toLocaleString('en-IN')}</td>
-          <td>
-            <input type="number" class="bypass-inp" min="0" step="0.01" value="${bypassValue}"
-              title="Enter a final payable amount to bypass day-based calculation"
-              onchange="updateBypass(${actualIdx},this.value)"
+            <input type="number" class="bypass-inp" min="0" step="0.01" value="${amountValue}"
+              title="Edit calculated day-based amount"
+              onchange="updateAmountOverride(${actualIdx},this.value)"
               ${canBypass ? '' : 'disabled'}>
           </td>
           <td><span class="final-amt">₹${parseFloat(finalAmt).toLocaleString('en-IN')}</span></td>
@@ -825,9 +783,21 @@
     showToast("Status reset. Manager can review again.", "info");
   }
 
-  function updateBypass(idx, val) {
+  function updateLeaveOverride(idx, val) {
+    const leaveDays = parseFloat(val);
+    if (!Number.isFinite(leaveDays) || leaveDays < 0) {
+      showToast("Please enter valid leave days.", "error");
+      renderAll();
+      return;
+    }
+    employeeData[idx].leaveOverride = leaveDays;
+    syncPayrollState();
+    renderAll();
+  }
+
+  function updateAmountOverride(idx, val) {
     if (val === "") {
-      employeeData[idx].bypass = "";
+      employeeData[idx].amountOverride = "";
     } else {
       const amount = parseFloat(val);
       if (!Number.isFinite(amount) || amount < 0) {
@@ -835,38 +805,25 @@
         renderAll();
         return;
       }
-      employeeData[idx].bypass = amount;
+      employeeData[idx].amountOverride = amount;
     }
-    syncPayrollState();
-    renderAll();
-  }
-
-  function updateDays(idx, val) {
-    const days = parseFloat(val);
-    if (!Number.isFinite(days) || days < 0) {
-      showToast("Please enter valid non-negative payable days.", "error");
-      renderAll();
-      return;
-    }
-    employeeData[idx].days = days;
     syncPayrollState();
     renderAll();
   }
 
   function getPayrollAmounts(emp, workingDays) {
     const salary = Number(emp.salary) || 0;
-    const leaveDays = Number(emp.leaves) || 0;
+    const leaveDays = Number.isFinite(Number(emp.leaveOverride))
+      ? Math.max(0, Number(emp.leaveOverride))
+      : Number(emp.leaves) || 0;
     const perDay = workingDays > 0 ? salary / workingDays : 0;
     const leaveDeduction = perDay * leaveDays;
-    const daysWorked = Number.isFinite(Number(emp.days))
-      ? Math.max(0, Number(emp.days))
-      : Math.max(0, workingDays - leaveDays);
-    const dayBasedAmount = perDay * daysWorked;
-    const hasBypass = emp.bypass !== undefined && emp.bypass !== "" &&
-      Number.isFinite(Number(emp.bypass)) && Number(emp.bypass) >= 0;
-    const finalAmount = hasBypass ? Number(emp.bypass) : dayBasedAmount;
+    const dayBasedAmount = salary - leaveDeduction;
+    const hasAmountOverride = emp.amountOverride !== undefined && emp.amountOverride !== "" &&
+      Number.isFinite(Number(emp.amountOverride)) && Number(emp.amountOverride) >= 0;
+    const finalAmount = hasAmountOverride ? Number(emp.amountOverride) : dayBasedAmount;
 
-    return { perDay, leaveDays, leaveDeduction, daysWorked, dayBasedAmount, finalAmount };
+    return { perDay, leaveDays, leaveDeduction, dayBasedAmount, finalAmount };
   }
 
   // ─── MODAL ──────────────────────────────────────────────────
@@ -907,7 +864,7 @@
     }
 
     if (editIdx === "") {
-      employeeData.push({ name, mode, salary, leaves:0, days:"", bypass:"", status:"Pending Manager Review" });
+      employeeData.push({ name, mode, salary, leaves:0, leaveOverride:"", amountOverride:"", status:"Pending Manager Review" });
       postToBackend({ action:"addEmployee", data:{ name, mode, salary } });
       showToast("Employee added! Leaves will auto-load from Attendance sheet.", "success");
     } else {
