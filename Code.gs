@@ -66,15 +66,34 @@ function getEmployees_(month, year) {
     }
   }
   const leaves = getLeaveMap_(month, year);
-  return employeeRows.slice(1).filter(function (r) { return r[0]; }).map(function (r) {
+  const employeeMap = {};
+  employeeRows.slice(1).forEach(function (r) {
+    if (!r[0]) return;
     const name = String(r[0]).trim();
-    const key = norm_(name);
+    employeeMap[norm_(name)] = {
+      name: name,
+      mode: String(r[1] || "Cash"),
+      salary: Number(r[2]) || 0
+    };
+  });
+
+  // The attendance spreadsheet is also the roster source. Include names
+  // that have leave records even when salary details are not entered yet.
+  const roster = getLeaveRoster_();
+  Object.keys(roster).forEach(function (key) {
+    if (!employeeMap[key]) {
+      employeeMap[key] = { name: roster[key], mode: "Cash", salary: 0 };
+    }
+  });
+
+  return Object.keys(employeeMap).map(function (key) {
+    const employee = employeeMap[key];
     const leave = leaves[key] || { total: 0, cl: 0, sl: 0, half: 0, details: [] };
     const saved = payrollMap[key] || {};
     return {
-      name: name,
-      mode: String(r[1] || "Cash"),
-      salary: Number(r[2]) || 0,
+      name: employee.name,
+      mode: employee.mode,
+      salary: employee.salary,
       leaves: leave.total,
       leaveCL: leave.cl,
       leaveSL: leave.sl,
@@ -85,6 +104,17 @@ function getEmployees_(month, year) {
       status: saved.status || "Pending Manager Review"
     };
   });
+}
+
+function getLeaveRoster_() {
+  const sheet = SpreadsheetApp.openById(LEAVES_SS_ID).getSheetByName(LEAVES_TAB);
+  if (!sheet) return {};
+  const roster = {};
+  sheet.getDataRange().getValues().slice(1).forEach(function (row) {
+    const name = String(row[1] || "").trim();
+    if (name) roster[norm_(name)] = name;
+  });
+  return roster;
 }
 
 function savePayroll_(employees) {
