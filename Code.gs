@@ -118,12 +118,26 @@ function getLeaveRoster_() {
 }
 
 function savePayroll_(employees) {
-  const sheet = payrollSheet_(SpreadsheetApp.openById(DATA_SS_ID));
+  const ss = SpreadsheetApp.openById(DATA_SS_ID);
+  const employeeSheet = ensureSheet_(ss, EMPLOYEES_TAB, ["Name", "Mode", "MonthlySalary"]);
+  const sheet = payrollSheet_(ss);
+  const employeeRows = employeeSheet.getDataRange().getValues();
   const rows = sheet.getDataRange().getValues();
+  const employeeRowByName = {};
   const rowByName = {};
+  for (let i = 1; i < employeeRows.length; i++) {
+    if (employeeRows[i][0]) employeeRowByName[norm_(employeeRows[i][0])] = i + 1;
+  }
   for (let i = 1; i < rows.length; i++) if (rows[i][0]) rowByName[norm_(rows[i][0])] = i + 1;
   const now = Utilities.formatDate(new Date(), "Asia/Kolkata", "dd-MM-yyyy HH:mm");
   employees.forEach(function (employee) {
+    const employeeKey = norm_(employee.name);
+    const employeeValues = [employee.name, employee.mode || "Cash", Number(employee.salary) || 0];
+    if (employeeRowByName[employeeKey]) {
+      employeeSheet.getRange(employeeRowByName[employeeKey], 1, 1, 3).setValues([employeeValues]);
+    } else {
+      employeeSheet.appendRow(employeeValues);
+    }
     const values = [
       employee.name,
       employee.bypass === "" || employee.bypass == null ? "" : Number(employee.bypass),
@@ -131,7 +145,7 @@ function savePayroll_(employees) {
       employee.status || "",
       now
     ];
-    const row = rowByName[norm_(employee.name)];
+    const row = rowByName[employeeKey];
     if (row) sheet.getRange(row, 1, 1, values.length).setValues([values]);
     else sheet.appendRow(values);
   });
@@ -140,7 +154,16 @@ function savePayroll_(employees) {
 function addEmployee_(employee) {
   const sheet = ensureSheet_(SpreadsheetApp.openById(DATA_SS_ID), EMPLOYEES_TAB,
     ["Name", "Mode", "MonthlySalary"]);
-  sheet.appendRow([employee.name, employee.mode || "Cash", Number(employee.salary) || 0]);
+  const name = String(employee && employee.name || "").trim();
+  if (!name) throw new Error("Employee name is required.");
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (norm_(rows[i][0]) === norm_(name)) {
+      sheet.getRange(i + 1, 1, 1, 3).setValues([[name, employee.mode || "Cash", Number(employee.salary) || 0]]);
+      return;
+    }
+  }
+  sheet.appendRow([name, employee.mode || "Cash", Number(employee.salary) || 0]);
 }
 
 function updateEmployee_(oldName, employee) {
