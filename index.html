@@ -650,19 +650,23 @@
           </td>
           <td><span class="chip ${emp.mode==='Cash'?'chip-cash':'chip-bank'}">${emp.mode}</span></td>
           <td>
-            <input type="number" class="bypass-inp" min="0" step="0.5" value="${effectiveLeave}"
-              title="Override leave days used for payroll"
-              onchange="updateLeaveOverride(${actualIdx},this.value)"
-              ${canBypass ? '' : 'disabled'}>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <input type="number" class="bypass-inp" min="0" step="0.5" value="${effectiveLeave}"
+                id="leaveOverride_${actualIdx}" title="Override leave days used for payroll"
+                ${canBypass ? '' : 'disabled'}>
+              ${canBypass ? `<button class="btn btn-blue sm" onclick="updateLeaveOverride(${actualIdx}, document.getElementById('leaveOverride_${actualIdx}').value)">Save</button>` : ''}
+            </div>
             <div style="margin-top:4px;">${lvBadge}</div>
           </td>
           <td>₹${Number(emp.salary || 0).toLocaleString('en-IN')}</td>
           <td>₹${perDay}</td>
           <td class="ded-cell">
-            <input type="number" class="bypass-inp" min="0" step="0.01" value="${deductionValue}"
-              title="Edit leave deduction amount"
-              onchange="updateDeductionOverride(${actualIdx},this.value)"
-              ${canBypass ? '' : 'disabled'}>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <input type="number" class="bypass-inp" min="0" step="0.01" value="${deductionValue}"
+                id="dedOverride_${actualIdx}" title="Edit leave deduction amount"
+                ${canBypass ? '' : 'disabled'}>
+              ${canBypass ? `<button class="btn btn-blue sm" onclick="updateDeductionOverride(${actualIdx}, document.getElementById('dedOverride_${actualIdx}').value)">Save</button>` : ''}
+            </div>
           </td>
           <td>₹${parseFloat(dayAmount).toLocaleString('en-IN')}</td>
           <td><span class="final-amt">₹${parseFloat(finalAmt).toLocaleString('en-IN')}</span></td>
@@ -754,6 +758,7 @@
     employeeData[idx].deductionOverride = "";
     syncPayrollState();
     renderAll();
+    showToast("Leave days updated & saved!", "success");
   }
 
   function updateDeductionOverride(idx, val) {
@@ -770,6 +775,7 @@
     }
     syncPayrollState();
     renderAll();
+    showToast("Deduction updated & saved!", "success");
   }
 
   function getPayrollAmounts(emp, workingDays) {
