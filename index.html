@@ -378,7 +378,7 @@
         document.getElementById('headerSub').innerText        = email;
         document.getElementById('roleDisplay').className      = `role-badge role-${currentUser.role}`;
         document.getElementById('roleDisplay').innerText      = currentUser.role;
-        const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Manager';
+        const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Manager' || currentUser.role === 'MD';
         document.getElementById('addEmpBtn').style.display    = canEdit ? 'inline-flex' : 'none';
         loadDataFromSheet();
         showToast(`Login successful! Welcome, ${currentUser.role}.`, "success");
@@ -468,9 +468,7 @@
     const mode = emp.mode;
     if (role === "Admin" || role === "Manager")  return fi.step === 0;
     if (role === "Accountant")                   return mode === "Bank" && fi.step === 1;
-    if (role === "MD") {
-      return (mode === "Cash" && fi.step === 1) || (mode === "Bank" && fi.step === 2);
-    }
+    if (role === "MD")                           return true; // MD has full access to review and approve all active records
     return false;
   }
 
@@ -503,9 +501,16 @@
     const role = currentUser.role;
     const mode = emp.mode;
     const fi   = getFlowInfo(emp);
-    const canEdit = role === "Admin" || role === "Manager";
+    const canEdit = role === "Admin" || role === "Manager" || role === "MD";
 
-    if (fi.state === "done")     return `<span style="color:var(--green);font-size:11px;font-weight:700;">✓ Complete</span>`;
+    if (fi.state === "done") {
+      if (role === "Admin" || role === "MD") {
+        return `<span style="color:var(--green);font-size:11px;font-weight:700;">✓ Complete</span>
+                <button class="btn btn-ghost sm" title="Edit" onclick="openEditModal(${idx})">✏️</button>`;
+      }
+      return `<span style="color:var(--green);font-size:11px;font-weight:700;">✓ Complete</span>`;
+    }
+
     if (fi.state === "rejected") {
       return canEdit
         ? `<button class="btn btn-ghost sm" onclick="openEditModal(${idx})">✏️ Edit</button>
@@ -513,9 +518,18 @@
         : `<span style="color:var(--red);font-size:11px;">Rejected</span>`;
     }
 
-    let b = "";
+    // Full access for MD (Pranav Satija)
+    if (role === "MD") {
+      return `
+        <button class="btn btn-green sm" onclick="forwardEmp(${idx},'Approved by MD ✓')">✓ Approve</button>
+        <button class="btn btn-red sm" onclick="forwardEmp(${idx},'Rejected by MD ✗')">✗ Reject</button>
+        <button class="btn btn-ghost sm" title="Edit" onclick="openEditModal(${idx})">✏️</button>
+        <button class="btn btn-red sm" title="Delete" onclick="deleteEmp(${idx})">🗑️</button>
+      `;
+    }
 
-    if (canEdit) {
+    if (role === "Admin" || role === "Manager") {
+      let b = "";
       if (fi.step === 0) {
         const fwdStatus = mode === "Cash"
           ? "Pending Cash Approval (MD)"
@@ -530,15 +544,6 @@
 
     if (role === "Accountant" && mode === "Bank" && fi.step === 1) {
       return `<button class="btn btn-green sm" onclick="forwardEmp(${idx},'Verified by Accountant (Pending MD)')">✓ Verify & Forward</button>`;
-    }
-
-  
-    if (role === "MD") {
-      const canAct = (mode === "Cash" && fi.step === 1) || (mode === "Bank" && fi.step === 2);
-      if (canAct) {
-        return `<button class="btn btn-green sm" onclick="forwardEmp(${idx},'Approved by MD ✓')">✓ Approve</button>
-                <button class="btn btn-red sm" onclick="forwardEmp(${idx},'Rejected by MD ✗')">✗ Reject</button>`;
-      }
     }
 
     return `<span style="font-size:11px;color:#bbb;">View Only</span>`;
