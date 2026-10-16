@@ -583,6 +583,27 @@
       cursor: not-allowed;
     }
 
+    .row-approved td {
+      background: #fbfdfb;
+    }
+
+    .row-approved:hover td {
+      background: #f0fdf4 !important;
+    }
+
+    .locked-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #1e8e3e;
+      background: #e6f4ea;
+      border: 1px solid #ceead6;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
     .flow-row {
       display: flex;
       align-items: center;
@@ -970,6 +991,7 @@
       <div class="main-nav-tabs">
         <button id="navPayrollBtn" class="main-nav-tab active" onclick="switchMainView('payroll')">
           👥 Staff Payroll & Attendance
+          <span class="main-nav-pill" id="navPayrollPill">September</span>
         </button>
         <button id="navExpensesBtn" class="main-nav-tab" onclick="switchMainView('expenses')">
           🏦 Monthly Fixed Expenses
@@ -1015,8 +1037,8 @@
         style="background:white; border-radius:12px; padding:13px 20px; margin-bottom:14px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
         <span
           style="font-size:11px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.5px;">Filters:</span>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <label style="font-size:12px; color:#666; font-weight:600; white-space:nowrap;">📅 Month</label>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <label style="font-size:12px; color:#666; font-weight:600; white-space:nowrap;">📅 Salary Month</label>
           <select id="filterMonth" onchange="loadDataFromSheet()"
             style="padding:7px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none;">
             <option value="1">January</option>
@@ -1034,6 +1056,9 @@
           </select>
           <select id="filterYear" onchange="loadDataFromSheet()"
             style="padding:7px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none;"></select>
+          <span id="payrollMonthCycleHint" style="font-size:11px; background:#e8f0fe; color:#1a56db; padding:3px 8px; border-radius:6px; font-weight:600; white-space:nowrap;">
+            Default: Previous Month Payroll
+          </span>
         </div>
         <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:200px; max-width:340px;">
           <label style="font-size:12px; color:#666; font-weight:600; white-space:nowrap;">👤 Employee</label>
@@ -1064,7 +1089,8 @@
             <label><b>Working Days:</b></label>
             <input type="number" id="globalWorkingDays" value="26" onchange="renderAll()">
           </div>
-          <button class="btn btn-green sm" onclick="exportExcel()">📥 Export</button>
+          <button class="btn btn-green sm" onclick="exportExcel()" title="Export clean Excel spreadsheet">📊 Excel</button>
+          <button class="btn sm" style="background:#dc2626; color:white; border:none; border-radius:6px; font-weight:600; padding:6px 12px; cursor:pointer;" onclick="exportPayrollPDF()" title="Download printable PDF statement">📄 PDF</button>
           <button class="btn btn-ghost sm" onclick="loadDataFromSheet()">🔄 Refresh</button>
           <button class="btn btn-blue sm" id="addEmpBtn" onclick="openModal()" style="display:none;">+ Add
             Employee</button>
@@ -1427,16 +1453,35 @@
     let employeeData = [];
     let activeTab = "ALL";
 
+    function getDefaultSalaryMonthYear() {
+      const now = new Date();
+      const currM = now.getMonth(); // 0: Jan, 9: Oct, 10: Nov
+      if (currM === 0) {
+        return { month: 12, year: now.getFullYear() - 1 };
+      }
+      return { month: currM, year: now.getFullYear() }; // e.g. Oct (9) -> Sep (9), Nov (10) -> Oct (10)
+    }
+
+    function updatePayrollNavPill() {
+      const { month } = getSelectedMonthYear();
+      const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const pill = document.getElementById('navPayrollPill');
+      if (pill) pill.innerText = monthNames[month] || "Payroll";
+    }
+
     (function initYearSelector() {
       const now = new Date();
+      const def = getDefaultSalaryMonthYear();
       const sel = document.getElementById('filterYear');
+      sel.innerHTML = "";
       for (let y = now.getFullYear() + 1; y >= 2024; y--) {
         const o = document.createElement('option');
         o.value = y; o.text = y;
-        if (y === now.getFullYear()) o.selected = true;
+        if (y === def.year) o.selected = true;
         sel.appendChild(o);
       }
-      document.getElementById('filterMonth').value = now.getMonth() + 1;
+      document.getElementById('filterMonth').value = def.month;
+      updatePayrollNavPill();
     })();
 
     function showToast(msg, type = "info") {
@@ -1487,16 +1532,17 @@
     }
 
     function getSelectedMonthYear() {
+      const def = getDefaultSalaryMonthYear();
       return {
-        month: parseInt(document.getElementById('filterMonth').value) || (new Date().getMonth() + 1),
-        year: parseInt(document.getElementById('filterYear').value) || new Date().getFullYear()
+        month: parseInt(document.getElementById('filterMonth').value) || def.month,
+        year: parseInt(document.getElementById('filterYear').value) || def.year
       };
     }
 
     function clearFilters() {
-      const now = new Date();
-      document.getElementById('filterMonth').value = now.getMonth() + 1;
-      document.getElementById('filterYear').value = now.getFullYear();
+      const def = getDefaultSalaryMonthYear();
+      document.getElementById('filterMonth').value = def.month;
+      document.getElementById('filterYear').value = def.year;
       document.getElementById('empSearch').value = "";
       loadDataFromSheet();
     }
@@ -1507,6 +1553,21 @@
       document.getElementById('payrollBody').innerHTML =
         `<tr><td colspan="10" style="padding:40px;color:#aaa;">⏳ Loading ${monthNames[month]} ${year} leave data from Google Sheet...</td></tr>`;
       setAttPill("warn", "⏳ Syncing...");
+
+      updatePayrollNavPill();
+      const def = getDefaultSalaryMonthYear();
+      const hint = document.getElementById('payrollMonthCycleHint');
+      if (hint) {
+        if (month === def.month && year === def.year) {
+          hint.innerText = "Default: Previous Month Payroll";
+          hint.style.background = "#e8f0fe";
+          hint.style.color = "#1a56db";
+        } else {
+          hint.innerText = `Archived / Custom: ${monthNames[month]} ${year}`;
+          hint.style.background = "#fef3c7";
+          hint.style.color = "#92400e";
+        }
+      }
 
       fetch(`${SCRIPT_URL}?action=getEmployees&month=${month}&year=${year}`)
         .then(r => r.json())
@@ -1600,9 +1661,10 @@
       if (role === "MD") {
         if (fi.state === "done") {
           return `
-            <button class="btn btn-ghost sm" title="Edit" onclick="openEditModal(${idx})">✏️</button>
-            <button class="btn btn-orange sm" title="Reset" onclick="resetStatus(${idx})">↩ Reset</button>
-            <button class="btn btn-red sm" title="Delete" onclick="deleteEmp(${idx})">🗑️</button>
+            <span style="color:var(--green);font-size:11px;font-weight:700;padding:4px 8px;background:#e6f4ea;border-radius:6px;border:1px solid #b7e1cd;display:inline-flex;align-items:center;gap:3px;">
+              🔒 Approved by MD
+            </span>
+            <button class="btn btn-orange sm" title="Reset / Unlock status to make edits" onclick="resetStatus(${idx})">↩ Unlock</button>
           `;
         }
         if (fi.state === "rejected") {
@@ -1622,11 +1684,9 @@
       }
 
       if (fi.state === "done") {
-        if (role === "Admin") {
-          return `<span style="color:var(--green);font-size:11px;font-weight:700;">✓ Complete</span>
-                  <button class="btn btn-ghost sm" title="Edit" onclick="openEditModal(${idx})">✏️</button>`;
-        }
-        return `<span style="color:var(--green);font-size:11px;font-weight:700;">✓ Complete</span>`;
+        return `<span style="color:var(--green);font-size:11px;font-weight:700;padding:4px 10px;background:#e6f4ea;border-radius:6px;border:1px solid #b7e1cd;display:inline-flex;align-items:center;gap:4px;">
+          🔒 Final Approved (Locked)
+        </span>`;
       }
       if (fi.state === "rejected") {
         return canEdit
@@ -1724,10 +1784,12 @@
         const dayAmount = amounts.dayBasedAmount.toFixed(2);
         const finalAmt = amounts.finalAmount.toFixed(2);
         const fi = getFlowInfo(emp);
+        const isApproved = fi.state === "done";
         const myAct = needsMyAction(emp);
-        const rowCls = myAct ? "action-row" : "";
+        const rowCls = myAct ? "action-row" : (isApproved ? "row-approved" : "");
         const canBypass = currentUser.role === "Admin" ||
           currentUser.role === "Manager" || currentUser.role === "MD";
+        const canEditRow = canBypass && !isApproved;
 
         const cl = parseFloat(emp.leaveCL) || 0;
         const sl = parseFloat(emp.leaveSL) || 0;
@@ -1756,33 +1818,58 @@
         const effectiveLeave = amounts.leaveDays;
         const deductionValue = amounts.leaveDeduction.toFixed(2);
 
-        return `
-        <tr class="${rowCls}">
-          <td class="emp-name">
-            ${emp.name}
-          </td>
-          <td><span class="chip ${emp.mode === 'Cash' ? 'chip-cash' : 'chip-bank'}">${emp.mode}</span></td>
-          <td>
-            <div style="display:flex; align-items:center; gap:4px;">
-              <input type="number" class="bypass-inp" min="0" step="0.5" value="${effectiveLeave}"
-                id="leaveOverride_${actualIdx}" title="Override leave days used for payroll"
-                ${canBypass ? '' : 'disabled'}>
-              ${canBypass ? `<button class="btn btn-blue sm" onclick="updateLeaveOverride(${actualIdx}, document.getElementById('leaveOverride_${actualIdx}').value)">Save</button>` : ''}
+        let leaveInputHTML;
+        if (isApproved) {
+          leaveInputHTML = `
+            <div style="display:flex; align-items:center; justify-content:center; gap:5px;">
+              <span style="font-weight:700; color:#1e293b; font-size:13px;">${effectiveLeave} <small style="color:#64748b; font-weight:600;">days</small></span>
+              <span class="locked-badge" title="Locked: Record is Approved">🔒</span>
             </div>
             <div style="margin-top:4px;">${lvBadge}</div>
-          </td>
-          <td>₹${Number(emp.salary || 0).toLocaleString('en-IN')}</td>
-          <td>₹${perDay}</td>
-          <td class="ded-cell">
-            <div style="display:flex; align-items:center; gap:4px;">
+          `;
+        } else {
+          leaveInputHTML = `
+            <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
+              <input type="number" class="bypass-inp" min="0" step="0.5" value="${effectiveLeave}"
+                id="leaveOverride_${actualIdx}" title="Override leave days used for payroll"
+                ${canEditRow ? '' : 'disabled'}>
+              ${canEditRow ? `<button class="btn btn-blue sm" onclick="updateLeaveOverride(${actualIdx}, document.getElementById('leaveOverride_${actualIdx}').value)">Save</button>` : ''}
+            </div>
+            <div style="margin-top:4px;">${lvBadge}</div>
+          `;
+        }
+
+        let dedInputHTML;
+        if (isApproved) {
+          dedInputHTML = `
+            <div style="display:flex; align-items:center; justify-content:center; gap:5px;">
+              <span style="font-weight:700; color:#dc2626; font-size:13px;">₹${parseFloat(deductionValue).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span class="locked-badge" title="Locked: Record is Approved">🔒</span>
+            </div>
+          `;
+        } else {
+          dedInputHTML = `
+            <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
               <input type="number" class="bypass-inp" min="0" step="0.01" value="${deductionValue}"
                 id="dedOverride_${actualIdx}" title="Edit leave deduction amount"
-                ${canBypass ? '' : 'disabled'}>
-              ${canBypass ? `<button class="btn btn-blue sm" onclick="updateDeductionOverride(${actualIdx}, document.getElementById('dedOverride_${actualIdx}').value)">Save</button>` : ''}
+                ${canEditRow ? '' : 'disabled'}>
+              ${canEditRow ? `<button class="btn btn-blue sm" onclick="updateDeductionOverride(${actualIdx}, document.getElementById('dedOverride_${actualIdx}').value)">Save</button>` : ''}
             </div>
+          `;
+        }
+
+        return `
+        <tr class="${rowCls}">
+          <td class="emp-name" style="text-align:left; padding-left:14px;">
+            <span style="display:inline-block; width:22px; color:#888; font-size:11px; font-weight:700;">${actualIdx + 1}.</span>${emp.name}
           </td>
-          <td>₹${parseFloat(dayAmount).toLocaleString('en-IN')}</td>
-          <td><span class="final-amt">₹${parseFloat(finalAmt).toLocaleString('en-IN')}</span></td>
+          <td><span class="chip ${emp.mode === 'Cash' ? 'chip-cash' : 'chip-bank'}">${emp.mode}</span></td>
+          <td>${leaveInputHTML}</td>
+          <td>₹${Number(emp.salary || 0).toLocaleString('en-IN')}</td>
+          <td>₹${perDay}</td>
+          <td class="ded-cell">${dedInputHTML}</td>
+          <td>₹${parseFloat(dayAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td><span class="final-amt">₹${parseFloat(finalAmt).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></td>
           <td>${flowHTML(emp)}</td>
           <td>
             <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
@@ -1857,10 +1944,15 @@
       employeeData[idx].status = "Pending Manager Review";
       syncPayrollState();
       renderAll();
-      showToast("Status reset. Manager can review again.", "info");
+      showToast("Status reset. Unlocked for edits & review.", "info");
     }
 
     function updateLeaveOverride(idx, val) {
+      if (getFlowInfo(employeeData[idx]).state === "done") {
+        showToast("⚠️ Record is already approved and locked. No changes allowed!", "error");
+        renderAll();
+        return;
+      }
       const leaveDays = parseFloat(val);
       if (!Number.isFinite(leaveDays) || leaveDays < 0) {
         showToast("Please enter valid leave days.", "error");
@@ -1875,6 +1967,11 @@
     }
 
     function updateDeductionOverride(idx, val) {
+      if (getFlowInfo(employeeData[idx]).state === "done") {
+        showToast("⚠️ Record is already approved and locked. No changes allowed!", "error");
+        renderAll();
+        return;
+      }
       if (val === "") {
         employeeData[idx].deductionOverride = "";
       } else {
@@ -1905,7 +2002,7 @@
         Number(emp.deductionOverride) >= 0
         ? Number(emp.deductionOverride)
         : perDay * leaveDays;
-      const dayBasedAmount = salary - leaveDeduction;
+      const dayBasedAmount = Math.max(0, salary - leaveDeduction);
       const finalAmount = dayBasedAmount;
 
       return { perDay, leaveDays, leaveDeduction, dayBasedAmount, finalAmount };
@@ -1923,6 +2020,10 @@
 
     function openEditModal(idx) {
       const e = employeeData[idx];
+      if (getFlowInfo(e).state === "done") {
+        showToast("⚠️ Approved record is locked and cannot be edited! Reset status first.", "error");
+        return;
+      }
       document.getElementById('modalTitle').innerText = "Edit Employee";
       document.getElementById('editIndex').value = idx;
       document.getElementById('editOrigName').value = e.name;
@@ -1952,6 +2053,11 @@
         postToBackend({ action: "addEmployee", data: { name, mode, salary } });
         showToast("Employee added! Leaves will auto-load from Attendance sheet.", "success");
       } else {
+        if (employeeData[editIdx] && getFlowInfo(employeeData[editIdx]).state === "done") {
+          showToast("⚠️ Cannot modify an approved record! It is locked.", "error");
+          closeModal();
+          return;
+        }
         employeeData[editIdx].name = name;
         employeeData[editIdx].mode = mode;
         employeeData[editIdx].salary = salary;
@@ -1963,6 +2069,10 @@
     }
 
     function deleteEmp(idx) {
+      if (employeeData[idx] && getFlowInfo(employeeData[idx]).state === "done") {
+        showToast("⚠️ Approved records are locked and cannot be deleted!", "error");
+        return;
+      }
       if (!confirm(`Delete "${employeeData[idx].name}" from payroll?`)) return;
       const name = employeeData[idx].name;
       employeeData.splice(idx, 1);
@@ -1988,10 +2098,217 @@
 
     function exportExcel() {
       try {
-        const wb = XLSX.utils.table_to_book(document.getElementById('payrollTable'), { sheet: "Payroll" });
-        XLSX.writeFile(wb, `SatijaPaper_Payroll_${new Date().toLocaleDateString('en-IN').replace(/\//g, '-')}.xlsx`);
-        showToast("Excel exported!", "success");
-      } catch (e) { showToast("Export failed!", "error"); }
+        const wd = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
+        const { month, year } = getSelectedMonthYear();
+        const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const mName = monthNames[month] || `Month-${month}`;
+
+        const data = [
+          ["SATIJA PAPER — STAFF PAYROLL SHEET", "", "", "", "", "", "", "", "", ""],
+          [`Month: ${mName} ${year}`, "", "", "", "", "", `Working Days: ${wd}`, "", `Exported: ${new Date().toLocaleDateString('en-IN')}`, ""],
+          [],
+          [
+            "S.No",
+            "Employee Name",
+            "Payment Mode",
+            "Leave Days",
+            "Monthly Salary (₹)",
+            "Per Day Rate (₹)",
+            "Leave Deduction (₹)",
+            "Day-Based Net (₹)",
+            "Final Payable (₹)",
+            "Approval Status"
+          ]
+        ];
+
+        let totalSalary = 0, totalDeduction = 0, totalPayable = 0;
+
+        employeeData.forEach((emp, i) => {
+          const amounts = getPayrollAmounts(emp, wd);
+          totalSalary += Number(emp.salary) || 0;
+          totalDeduction += amounts.leaveDeduction;
+          totalPayable += amounts.finalAmount;
+
+          data.push([
+            i + 1,
+            emp.name,
+            emp.mode || "Cash",
+            amounts.leaveDays,
+            Number(emp.salary) || 0,
+            Math.round(amounts.perDay * 100) / 100,
+            Math.round(amounts.leaveDeduction * 100) / 100,
+            Math.round(amounts.dayBasedAmount * 100) / 100,
+            Math.round(amounts.finalAmount * 100) / 100,
+            emp.status || "Pending"
+          ]);
+        });
+
+        data.push([]);
+        data.push([
+          "TOTAL", "", "", "",
+          totalSalary,
+          "",
+          Math.round(totalDeduction * 100) / 100,
+          Math.round(totalPayable * 100) / 100,
+          Math.round(totalPayable * 100) / 100,
+          ""
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Payroll");
+        XLSX.writeFile(wb, `SatijaPaper_Payroll_${mName}_${year}.xlsx`);
+        showToast("Excel exported successfully!", "success");
+      } catch (e) {
+        console.error("Export error:", e);
+        showToast("Export failed: " + e.message, "error");
+      }
+    }
+
+    function exportPayrollPDF() {
+      if (!employeeData || employeeData.length === 0) {
+        showToast("No employee data available to export!", "error");
+        return;
+      }
+      try {
+        const wd = parseFloat(document.getElementById('globalWorkingDays').value) || 26;
+        const { month, year } = getSelectedMonthYear();
+        const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const mName = monthNames[month] || `Month-${month}`;
+
+        let totalSalary = 0, totalDeduction = 0, totalPayable = 0;
+
+        const rowsHtml = employeeData.map((emp, i) => {
+          const amounts = getPayrollAmounts(emp, wd);
+          totalSalary += Number(emp.salary) || 0;
+          totalDeduction += amounts.leaveDeduction;
+          totalPayable += amounts.finalAmount;
+
+          return `
+            <tr style="border-bottom: 1px solid #e2e8f0; ${i % 2 === 1 ? 'background:#f8fafc;' : ''}">
+              <td style="padding: 8px 6px; text-align: center; font-weight: 600; color: #64748b;">${i + 1}</td>
+              <td style="padding: 8px 10px; font-weight: 600; color: #1e293b; text-align: left;">${emp.name}</td>
+              <td style="padding: 8px; text-align: center;">
+                <span style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; ${emp.mode === 'Cash' ? 'background:#fce8e6; color:#c62828;' : 'background:#e8f0fe; color:#1a56db;'}">
+                  ${emp.mode || 'Cash'}
+                </span>
+              </td>
+              <td style="padding: 8px; text-align: center; font-weight: 600; color: #475569;">${amounts.leaveDays}</td>
+              <td style="padding: 8px 10px; text-align: right; color: #334155;">₹${(Number(emp.salary) || 0).toLocaleString('en-IN')}</td>
+              <td style="padding: 8px 10px; text-align: right; color: #64748b;">₹${amounts.perDay.toFixed(2)}</td>
+              <td style="padding: 8px 10px; text-align: right; color: #dc2626; font-weight: 600;">₹${amounts.leaveDeduction.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td style="padding: 8px 10px; text-align: right; color: #16a34a; font-weight: 700;">₹${amounts.finalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td style="padding: 8px 10px; text-align: center; font-size: 10.5px; color: #475569;">${emp.status || 'Pending'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        const printableHtml = `
+          <div id="payrollPdfPrintableArea" style="padding: 24px 30px; font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; width: 800px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2.5px solid #1a73e8; padding-bottom: 14px; margin-bottom: 16px;">
+              <div>
+                <h1 style="margin: 0; color: #1a73e8; font-size: 22px; letter-spacing: 0.5px;">SATIJA PAPER MILLS / TRADERS</h1>
+                <h2 style="margin: 4px 0 0; color: #334155; font-size: 15px; font-weight: 600;">STAFF PAYROLL & SALARY STATEMENT</h2>
+                <p style="margin: 4px 0 0; color: #64748b; font-size: 12px;">Payroll Period: <b style="color: #1a73e8;">${mName.toUpperCase()} ${year}</b> · Working Days: <b>${wd}</b></p>
+              </div>
+              <div style="text-align: right; font-size: 11px; color: #64748b;">
+                <p style="margin: 0;">Date: <b>${new Date().toLocaleDateString('en-IN')}</b></p>
+                <p style="margin: 3px 0 0;">Total Staff: <b>${employeeData.length}</b></p>
+                <p style="margin: 3px 0 0;">Sheet Tab: <b>Payroll / Attendance</b></p>
+              </div>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1.5px solid #1a73e8;">
+              <thead>
+                <tr style="background: #1a73e8; color: white;">
+                  <th style="padding: 9px 6px; border: 1px solid #1557b0; text-align: center;">#</th>
+                  <th style="padding: 9px 8px; border: 1px solid #1557b0; text-align: left;">EMPLOYEE NAME</th>
+                  <th style="padding: 9px 6px; border: 1px solid #1557b0; text-align: center;">MODE</th>
+                  <th style="padding: 9px 6px; border: 1px solid #1557b0; text-align: center;">LEAVES</th>
+                  <th style="padding: 9px 8px; border: 1px solid #1557b0; text-align: right;">MONTHLY (₹)</th>
+                  <th style="padding: 9px 8px; border: 1px solid #1557b0; text-align: right;">PER DAY (₹)</th>
+                  <th style="padding: 9px 8px; border: 1px solid #1557b0; text-align: right;">DEDUCTION (₹)</th>
+                  <th style="padding: 9px 8px; border: 1px solid #1557b0; text-align: right;">NET PAYABLE (₹)</th>
+                  <th style="padding: 9px 8px; border: 1px solid #1557b0; text-align: center;">APPROVAL STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+                <tr style="background: #f0f4f8; font-weight: 700; border-top: 2px solid #1a73e8;">
+                  <td colspan="4" style="padding: 10px 12px; text-align: right; font-size: 12px; color: #1a56db; border: 1px solid #cbd5e1;">
+                    TOTAL NET PAYROLL:
+                  </td>
+                  <td style="padding: 10px 8px; text-align: right; font-size: 12px; color: #334155; border: 1px solid #cbd5e1;">
+                    ₹${totalSalary.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td style="border: 1px solid #cbd5e1;"></td>
+                  <td style="padding: 10px 8px; text-align: right; font-size: 12px; color: #dc2626; border: 1px solid #cbd5e1;">
+                    ₹${totalDeduction.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td style="padding: 10px 8px; text-align: right; font-size: 13px; color: #16a34a; border: 1px solid #cbd5e1;">
+                    ₹${totalPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td style="padding: 10px 8px; text-align: center; font-size: 11px; border: 1px solid #cbd5e1; color: #475569;">
+                    Official Record
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="margin-top: 45px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 10px;">
+              <div style="text-align: center; width: 28%;">
+                <div style="border-bottom: 1.5px solid #334155; margin-bottom: 6px; height: 35px;"></div>
+                <div style="font-weight: 700; font-size: 12px; color: #1a56db;">1. Mukesh Shukla</div>
+                <div style="font-size: 11px; color: #64748b;">Manager (Attendance & Review)</div>
+              </div>
+              <div style="text-align: center; width: 28%;">
+                <div style="border-bottom: 1.5px solid #334155; margin-bottom: 6px; height: 35px;"></div>
+                <div style="font-weight: 700; font-size: 12px; color: #e65100;">2. Sandeep Dhawan</div>
+                <div style="font-size: 11px; color: #64748b;">Accountant (Bank Verification)</div>
+              </div>
+              <div style="text-align: center; width: 28%;">
+                <div style="border-bottom: 1.5px solid #334155; margin-bottom: 6px; height: 35px;"></div>
+                <div style="font-weight: 700; font-size: 12px; color: #1e7e34;">3. Pranav Satija</div>
+                <div style="font-size: 11px; color: #64748b;">MD / Boss (Final Sign-off)</div>
+              </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+              CONFIDENTIAL · FOR INTERNAL ACCOUNTING & MANAGEMENT USE ONLY · SATIJA PAPER
+            </div>
+          </div>
+        `;
+
+        const container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.innerHTML = printableHtml;
+        document.body.appendChild(container);
+
+        showToast("Generating Payroll PDF...", "info");
+
+        const opt = {
+          margin: [8, 8, 8, 8],
+          filename: `SatijaPaper_Payroll_${mName}_${year}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        const targetEl = container.firstElementChild;
+        html2pdf().set(opt).from(targetEl).save().then(() => {
+          if (document.body.contains(container)) document.body.removeChild(container);
+          showToast("Payroll PDF downloaded successfully!", "success");
+        }).catch(err => {
+          console.error("PDF error:", err);
+          if (document.body.contains(container)) document.body.removeChild(container);
+          showToast("PDF generation failed: " + err.message, "error");
+        });
+      } catch (err) {
+        console.error("PDF generation exception:", err);
+        showToast("PDF generation error: " + err.message, "error");
+      }
     }
 
     /* ==========================================================================
@@ -2317,9 +2634,10 @@
       if (role === "MD") {
         if (fi.state === "done") {
           return `
-            <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
-            <button class="btn btn-orange sm" title="Reset to Step 1" onclick="resetExpenseStatus(${idx})">↩ Reset</button>
-            <button class="btn btn-red sm" title="Delete Row" onclick="deleteExpenseRow(${idx})">🗑️</button>
+            <span style="color:var(--green);font-size:11px;font-weight:700;padding:4px 8px;background:#e6f4ea;border-radius:6px;border:1px solid #b7e1cd;display:inline-flex;align-items:center;gap:3px;">
+              🔒 Approved by MD
+            </span>
+            <button class="btn btn-orange sm" title="Reset to Step 1 to unlock" onclick="resetExpenseStatus(${idx})">↩ Unlock</button>
           `;
         }
         if (fi.state === "rejected") {
@@ -2359,8 +2677,9 @@
       }
 
       if (fi.state === "done") {
-        return `<span style="color:var(--green);font-size:11px;font-weight:700;">✓ Approved</span>
-                <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>`;
+        return `<span style="color:var(--green);font-size:11px;font-weight:700;padding:4px 10px;background:#e6f4ea;border-radius:6px;border:1px solid #b7e1cd;display:inline-flex;align-items:center;gap:4px;">
+          🔒 Final Approved (Locked)
+        </span>`;
       }
       if (fi.state === "rejected") {
         return `<span style="color:var(--red);font-size:11px;font-weight:700;">✗ Rejected</span>
@@ -2595,6 +2914,11 @@
 
     function openExpenseEditModal(idx) {
       const e = expensesData[idx];
+      const fi = getExpenseFlowInfo(e);
+      if (fi.state === "done") {
+        showToast("⚠️ Approved fixed expense is locked and cannot be edited! Unlock first.", "error");
+        return;
+      }
       document.getElementById('expModalTitle').innerText = "Edit Fixed Expense";
       document.getElementById('expEditIndex').value = idx;
       document.getElementById('modalExpSno').value = e.sno || (idx + 1);
@@ -2635,6 +2959,11 @@
         showToast("Expense row added successfully!", "success");
       } else {
         const i = parseInt(editIdx);
+        if (expensesData[i] && getExpenseFlowInfo(expensesData[i]).state === "done") {
+          showToast("⚠️ Cannot modify an approved fixed expense! It is locked.", "error");
+          closeExpenseRowModal();
+          return;
+        }
         expensesData[i].sno = sno;
         expensesData[i].head = head;
         expensesData[i].bank = bank;
@@ -2650,6 +2979,10 @@
 
     function deleteExpenseRow(idx) {
       const item = expensesData[idx];
+      if (item && getExpenseFlowInfo(item).state === "done") {
+        showToast("⚠️ Approved fixed expenses are locked and cannot be deleted!", "error");
+        return;
+      }
       if (!confirm(`Delete expense "${item.head} - ${item.particular}"?`)) return;
       expensesData.splice(idx, 1);
       syncExpensesState();
