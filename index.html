@@ -1101,21 +1101,22 @@
     <!-- Monthly Fixed Expenses View Section -->
     <div id="expensesViewSection" class="dash-body" style="display:none;">
 
-      <!-- 3-Step Approval Flow Banner -->
+      <!-- Approval Flow Banner: Bank vs Cash -->
       <div class="expense-flow-banner">
         <div style="display:flex; align-items:center; gap:14px;">
           <span style="font-size:30px;">🏦</span>
           <div>
             <h3 style="margin:0 0 4px; font-size:15px; color:var(--blue);">Monthly Fixed Expenses Workflow</h3>
-            <p style="margin:0; font-size:13px; color:#666;">
-              Approval Hierarchy: <b>1st: Mukesh ji (Manager)</b> ➔ <b>2nd: Sandeep ji (Accountant)</b> ➔ <b>3rd: Pranav Boss (MD Final Sign-off)</b>
+            <p style="margin:0; font-size:12.5px; color:#555;">
+              💳 <b>Bank Expenses:</b> 1️⃣ Mukesh ji (Manager) ➔ 2️⃣ Sandeep ji (Accountant) ➔ 3️⃣ Pranav Boss (MD)<br>
+              💵 <b>Cash Expenses:</b> 1️⃣ Mukesh ji (Manager) ➔ 2️⃣ Pranav Boss (MD Direct) <span style="color:#e65100; font-weight:600;">(Sandeep ji bypass)</span>
             </p>
           </div>
         </div>
         <div class="flow-steps-guide">
           <div class="flow-guide-step s1">1️⃣ Mukesh Shukla (Manager)</div>
           <span style="color:#aaa; font-weight:700;">➔</span>
-          <div class="flow-guide-step s2">2️⃣ Sandeep Dhawan (Accountant)</div>
+          <div class="flow-guide-step s2" title="Bank expenses only">2️⃣ Sandeep Dhawan (Acct - Bank Only)</div>
           <span style="color:#aaa; font-weight:700;">➔</span>
           <div class="flow-guide-step s3">3️⃣ Pranav Satija (MD Boss)</div>
         </div>
@@ -1174,6 +1175,16 @@
             style="width:100%; padding:7px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none;">
         </div>
         <button class="btn btn-ghost sm" onclick="clearExpenseFilters()" style="margin-left:auto;">✕ Clear</button>
+      </div>
+
+      <!-- Quarterly Expense Status Notice -->
+      <div id="expenseQuarterlyNotice" style="background:#eef4ff; border-left:4px solid var(--blue); padding:10px 16px; border-radius:8px; font-size:12px; margin-bottom:14px; color:#1e40af; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <span id="expenseQuarterlyNoticeText">
+          🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> September already completed ✓. Next due in <b>December</b>.
+        </span>
+        <span style="font-size:11px; font-weight:600; background:white; padding:3px 10px; border-radius:12px; color:#1a56db; border:1px solid #bfdbfe;">
+          Quarterly Cycle: Mar · Jun · Sep · Dec
+        </span>
       </div>
 
       <!-- Expense Control Bar -->
@@ -2007,8 +2018,8 @@
 
     let expenseHeadings = { ...DEFAULT_EXPENSE_HEADINGS };
 
-    // Default Fixed Expenses from user's record (Starting from October)
-    const DEFAULT_OCTOBER_EXPENSES = [
+    // 8 Base Monthly Fixed Expenses (Security Guard is Quarterly, so not included in Oct/Nov)
+    const BASE_MONTHLY_FIXED_EXPENSES = [
       { sno: 1, head: "Drawing", bank: "CASH TALLY PRIME", to: "TO", particular: "DRAWING PRANAV", amount: 15000, status: "Pending Manager Review (Mukesh ji)" },
       { sno: 2, head: "Drawing", bank: "HSBC", to: "TO", particular: "PNB PRANAV", amount: 35000, status: "Pending Manager Review (Mukesh ji)" },
       { sno: 3, head: "Home Loan", bank: "PNB PRANAV", to: "TO", particular: "KOTAK JOINT", amount: 75000, status: "Pending Manager Review (Mukesh ji)" },
@@ -2016,9 +2027,35 @@
       { sno: 5, head: "Godown Rent", bank: "HSBC", to: "TO", particular: "SANTOSH CLEARING", amount: 70800, status: "Pending Manager Review (Mukesh ji)" },
       { sno: 6, head: "Office Rent", bank: "PNB", to: "TO", particular: "Veena Satija Rent 790 & 787", amount: 54000, status: "Pending Manager Review (Mukesh ji)" },
       { sno: 7, head: "Office Exp", bank: "PNB", to: "TO", particular: "CASH Withdraw", amount: 100000, status: "Pending Manager Review (Mukesh ji)" },
-      { sno: 8, head: "SWEEPER", bank: "CASH", to: "TO", particular: "BALA AUNT", amount: 150, status: "Pending Manager Review (Mukesh ji)" },
-      { sno: 9, head: "SECURITY GAURD", bank: "CASH", to: "TO", particular: "MAAN AUNT QTRLY 1500", amount: 500, status: "Pending Manager Review (Mukesh ji)" }
+      { sno: 8, head: "SWEEPER", bank: "CASH", to: "TO", particular: "BALA AUNT", amount: 150, status: "Pending Manager Review (Mukesh ji)" }
     ];
+
+    function isQuarterlyMonth(m) {
+      // Security Guard quarterly cycle: March (3), June (6), September (9 - already paid), December (12 - next due)
+      return m === 12 || m === 3 || m === 6 || m === 9;
+    }
+
+    function getDefaultExpensesForMonth(m) {
+      const list = JSON.parse(JSON.stringify(BASE_MONTHLY_FIXED_EXPENSES));
+      if (isQuarterlyMonth(m)) {
+        list.push({
+          sno: list.length + 1,
+          head: "SECURITY GAURD",
+          bank: "CASH",
+          to: "TO",
+          particular: "MAAN AUNT QTRLY 1500",
+          amount: 1500,
+          isQuarterly: true,
+          status: "Pending Manager Review (Mukesh ji)"
+        });
+      }
+      return list;
+    }
+
+    function isCashExpense(exp) {
+      const b = String(exp?.bank || "").trim().toUpperCase();
+      return b.includes("CASH");
+    }
 
     function switchMainView(view) {
       currentMainView = view;
@@ -2081,10 +2118,29 @@
       };
     }
 
+    function updateQuarterlyNotice(month) {
+      const noticeText = document.getElementById('expenseQuarterlyNoticeText');
+      if (!noticeText) return;
+
+      if (month === 10) {
+        noticeText.innerHTML = `🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> September already completed ✓. Next payment due in <b>December</b> (not charged in October).`;
+      } else if (month === 11) {
+        noticeText.innerHTML = `🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> September already completed ✓. Next payment due in <b>December</b> (not charged in November).`;
+      } else if (month === 12) {
+        noticeText.innerHTML = `🔔 <b>Quarterly Payment Due in December:</b> Security Guard (Maan Aunt Qtrly ₹1,500) is included in December Fixed Expenses!`;
+      } else if (isQuarterlyMonth(month)) {
+        noticeText.innerHTML = `🔔 <b>Quarterly Payment Month:</b> Security Guard (Maan Aunt Qtrly ₹1,500) is due and included.`;
+      } else {
+        noticeText.innerHTML = `🛡️ <b>Quarterly Schedule:</b> Security Guard paid quarterly (Mar, Jun, Sep, Dec). Not charged this month.`;
+      }
+    }
+
     function loadExpensesFromSheet() {
       const { month, year } = getSelectedExpenseMonthYear();
       const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
       const mName = monthNames[month] || "October";
+
+      updateQuarterlyNotice(month);
 
       const storageKey = `satija_fixed_expenses_${year}_${month}`;
       const cached = localStorage.getItem(storageKey);
@@ -2092,19 +2148,35 @@
       if (cached) {
         try {
           expensesData = JSON.parse(cached);
+
+          // Fix Security Guard quarterly schedule:
+          // September is done, so in October (10) and November (11) it should NOT appear!
+          if (month === 10 || month === 11) {
+            expensesData = expensesData.filter(e => !(e.head || "").toUpperCase().includes("SECURITY"));
+          } else if (month === 12 && !expensesData.some(e => (e.head || "").toUpperCase().includes("SECURITY"))) {
+            // December must include quarterly Security Guard (₹1,500)
+            expensesData.push({
+              sno: expensesData.length + 1,
+              head: "SECURITY GAURD",
+              bank: "CASH",
+              to: "TO",
+              particular: "MAAN AUNT QTRLY 1500",
+              amount: 1500,
+              isQuarterly: true,
+              status: "Pending Manager Review (Mukesh ji)"
+            });
+          }
+
+          // Re-index sno
+          expensesData.forEach((e, idx) => { e.sno = idx + 1; });
+          localStorage.setItem(storageKey, JSON.stringify(expensesData));
         } catch (e) {
-          expensesData = [];
+          expensesData = getDefaultExpensesForMonth(month);
+          localStorage.setItem(storageKey, JSON.stringify(expensesData));
         }
-      } else if (month === 10) {
-        // October default data matching user screenshot
-        expensesData = JSON.parse(JSON.stringify(DEFAULT_OCTOBER_EXPENSES));
-        localStorage.setItem(storageKey, JSON.stringify(expensesData));
       } else {
-        // Template for other months
-        expensesData = DEFAULT_OCTOBER_EXPENSES.map(e => ({
-          ...e,
-          status: "Pending Manager Review (Mukesh ji)"
-        }));
+        expensesData = getDefaultExpensesForMonth(month);
+        localStorage.setItem(storageKey, JSON.stringify(expensesData));
       }
 
       renderExpensesAll();
@@ -2113,20 +2185,37 @@
       fetch(`${SCRIPT_URL}?action=getExpenses&month=${month}&year=${year}`)
         .then(r => r.json())
         .then(res => {
+          let sheetData = [];
           if (res && Array.isArray(res) && res.length > 0) {
-            expensesData = res;
-            localStorage.setItem(storageKey, JSON.stringify(expensesData));
-            renderExpensesAll();
-            showToast(`✅ ${res.length} fixed expenses loaded from Sheet (${mName} ${year})`, "success");
+            sheetData = res;
           } else if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
-            expensesData = res.data;
+            sheetData = res.data;
             if (res.headings) {
               expenseHeadings = Object.assign({}, DEFAULT_EXPENSE_HEADINGS, res.headings);
               applyExpenseHeadingsToUI();
             }
+          }
+
+          if (sheetData.length > 0) {
+            if (month === 10 || month === 11) {
+              sheetData = sheetData.filter(e => !(e.head || "").toUpperCase().includes("SECURITY"));
+            } else if (month === 12 && !sheetData.some(e => (e.head || "").toUpperCase().includes("SECURITY"))) {
+              sheetData.push({
+                sno: sheetData.length + 1,
+                head: "SECURITY GAURD",
+                bank: "CASH",
+                to: "TO",
+                particular: "MAAN AUNT QTRLY 1500",
+                amount: 1500,
+                isQuarterly: true,
+                status: "Pending Manager Review (Mukesh ji)"
+              });
+            }
+            sheetData.forEach((e, idx) => { e.sno = idx + 1; });
+            expensesData = sheetData;
             localStorage.setItem(storageKey, JSON.stringify(expensesData));
             renderExpensesAll();
-            showToast(`✅ Fixed expenses loaded from Sheet (${mName} ${year})`, "success");
+            showToast(`✅ ${expensesData.length} fixed expenses synced from Sheet (${mName} ${year})`, "success");
           }
         })
         .catch(err => {
@@ -2154,13 +2243,20 @@
       const s = (exp.status || "").toLowerCase();
       if (s.includes("reject")) return { step: -1, state: "rejected" };
       if (s.includes("approved by md") || s.includes("✓")) return { step: 99, state: "done" };
-      if (s.includes("verified by accountant") || s.includes("pending md") || s.includes("pranav")) {
-        return { step: 2, state: "active" }; // Awaiting MD Pranav Boss
-      }
-      if (s.includes("verified by manager") || s.includes("pending accountant") || s.includes("sandeep")) {
+
+      const isCash = isCashExpense(exp);
+      if (isCash) {
+        // Cash Flow: Mukesh (Step 0) ➔ Pranav MD (Step 1) ➔ Done (Sandeep ji bypass)
+        if (s.includes("pending manager") || s === "") return { step: 0, state: "active" };
+        return { step: 1, state: "active" }; // Awaiting MD Pranav Boss
+      } else {
+        // Bank Flow: Mukesh (Step 0) ➔ Sandeep Accountant (Step 1) ➔ Pranav MD (Step 2) ➔ Done
+        if (s.includes("pending manager") || s === "") return { step: 0, state: "active" };
+        if (s.includes("verified by accountant") || s.includes("pending md") || s.includes("pranav")) {
+          return { step: 2, state: "active" }; // Awaiting MD Pranav Boss
+        }
         return { step: 1, state: "active" }; // Awaiting Accountant Sandeep ji
       }
-      return { step: 0, state: "active" }; // Awaiting Manager Mukesh ji
     }
 
     function needsMyExpenseAction(exp) {
@@ -2168,15 +2264,20 @@
       const fi = getExpenseFlowInfo(exp);
       if (fi.state === "done" || fi.state === "rejected") return false;
       const role = currentUser.role;
+      const isCash = isCashExpense(exp);
+
       if (role === "Admin") return true;
       if (role === "Manager") return fi.step === 0;
-      if (role === "Accountant") return fi.step === 1;
+      // Sandeep ji (Accountant) only verifies BANK expenses at Step 1! Cash expenses are bypassed directly to MD!
+      if (role === "Accountant") return !isCash && fi.step === 1;
       if (role === "MD") return true; // MD can review and sign off anytime
       return false;
     }
 
     function expenseFlowHTML(exp) {
       const fi = getExpenseFlowInfo(exp);
+      const isCash = isCashExpense(exp);
+
       if (fi.state === "rejected") {
         return `<span style="color:var(--red); font-size:11px; font-weight:700;">✗ Rejected by MD</span>`;
       }
@@ -2184,8 +2285,14 @@
         return `<span style="color:var(--green); font-size:11px; font-weight:700;">✓ Approved by MD</span>`;
       }
 
-      const steps = ["Mukesh", "Sandeep", "Pranav", "Done"];
-      const active = fi.step === 0 ? 0 : fi.step === 1 ? 1 : fi.step === 2 ? 2 : 3;
+      // Cash flow: Mukesh -> Pranav -> Done; Bank flow: Mukesh -> Sandeep -> Pranav -> Done
+      const steps = isCash
+        ? ["Mukesh", "Pranav", "Done"]
+        : ["Mukesh", "Sandeep", "Pranav", "Done"];
+
+      const active = isCash
+        ? (fi.step === 0 ? 0 : fi.step === 1 ? 1 : 2)
+        : (fi.step === 0 ? 0 : fi.step === 1 ? 1 : fi.step === 2 ? 2 : 3);
 
       let h = `<div class="flow-row">`;
       steps.forEach((lbl, i) => {
@@ -2204,6 +2311,7 @@
       if (!currentUser) return "";
       const role = currentUser.role;
       const fi = getExpenseFlowInfo(exp);
+      const isCash = isCashExpense(exp);
 
       // Super Boss Access: MD (Pranav Satija)
       if (role === "MD") {
@@ -2234,10 +2342,14 @@
       if (role === "Admin") {
         let b = "";
         if (fi.step === 0) {
-          b += `<button class="btn btn-blue sm" onclick="forwardExpense(${idx}, 'Verified by Manager (Pending Accountant Sandeep ji)')">→ Sandeep</button> `;
-        } else if (fi.step === 1) {
+          if (isCash) {
+            b += `<button class="btn btn-blue sm" onclick="forwardExpense(${idx}, 'Pending Cash Approval (MD Pranav Boss)')">→ Pranav Boss</button> `;
+          } else {
+            b += `<button class="btn btn-blue sm" onclick="forwardExpense(${idx}, 'Verified by Manager (Pending Accountant Sandeep ji)')">→ Sandeep</button> `;
+          }
+        } else if (fi.step === 1 && !isCash) {
           b += `<button class="btn btn-green sm" onclick="forwardExpense(${idx}, 'Verified by Accountant (Pending MD Pranav Boss)')">→ Pranav</button> `;
-        } else if (fi.step === 2) {
+        } else if ((isCash && fi.step === 1) || (!isCash && fi.step === 2)) {
           b += `<button class="btn btn-green sm" onclick="forwardExpense(${idx}, 'Approved by MD ✓')">✓ Approve</button> `;
         }
         b += `<button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button> `;
@@ -2258,20 +2370,35 @@
       // Manager (Mukesh Shukla - 1st Reviewer)
       if (role === "Manager") {
         if (fi.step === 0) {
-          return `
-            <button class="btn btn-blue sm" onclick="forwardExpense(${idx}, 'Verified by Manager (Pending Accountant Sandeep ji)')">→ Send to Sandeep ji</button>
-            <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
-            <button class="btn btn-red sm" title="Delete Row" onclick="deleteExpenseRow(${idx})">🗑️</button>
-          `;
+          if (isCash) {
+            return `
+              <button class="btn btn-blue sm" onclick="forwardExpense(${idx}, 'Pending Cash Approval (MD Pranav Boss)')">→ Send to Pranav Boss</button>
+              <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+              <button class="btn btn-red sm" title="Delete Row" onclick="deleteExpenseRow(${idx})">🗑️</button>
+            `;
+          } else {
+            return `
+              <button class="btn btn-blue sm" onclick="forwardExpense(${idx}, 'Verified by Manager (Pending Accountant Sandeep ji)')">→ Send to Sandeep ji</button>
+              <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+              <button class="btn btn-red sm" title="Delete Row" onclick="deleteExpenseRow(${idx})">🗑️</button>
+            `;
+          }
         }
+        const sentTo = isCash ? "Pranav Boss" : "Sandeep ji";
         return `
-          <span style="font-size:11px;color:#1a73e8;font-weight:600;">Sent to Sandeep ji</span>
+          <span style="font-size:11px;color:#1a73e8;font-weight:600;">Sent to ${sentTo}</span>
           <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
         `;
       }
 
-      // Accountant (Sandeep Dhawan - 2nd Reviewer)
+      // Accountant (Sandeep Dhawan - 2nd Reviewer for Bank only!)
       if (role === "Accountant") {
+        if (isCash) {
+          return `
+            <span style="font-size:11px;color:#888;">Cash (Direct MD)</span>
+            <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+          `;
+        }
         if (fi.step === 1) {
           return `
             <button class="btn btn-green sm" onclick="forwardExpense(${idx}, 'Verified by Accountant (Pending MD Pranav Boss)')">✓ Verify & Send to Pranav Boss</button>
@@ -2378,9 +2505,16 @@
           <tr class="${rowCls}">
             <td style="font-weight:700; color:#555;">${exp.sno || (actualIdx + 1)}</td>
             <td style="text-align:left; padding-left:14px;"><span class="badge-head">${exp.head || '—'}</span></td>
-            <td><span class="badge-bank">${exp.bank || '—'}</span></td>
+            <td>
+              <span class="badge-bank" style="${isCashExpense(exp) ? 'background:#fce8e6; color:#c62828;' : 'background:#e8f0fe; color:#1a56db;'}">
+                ${isCashExpense(exp) ? '💵 ' : '🏦 '}${exp.bank || '—'}
+              </span>
+            </td>
             <td><span class="pill-to">TO</span></td>
-            <td class="particular-cell">${exp.particular || '—'}</td>
+            <td class="particular-cell">
+              ${exp.particular || '—'}
+              ${exp.isQuarterly ? '<span style="font-size:10px; background:#e8f0fe; color:#1a73e8; padding:2px 6px; border-radius:4px; font-weight:700; margin-left:6px;">QTRLY</span>' : ''}
+            </td>
             <td class="amt-cell">₹${amt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td>${expenseFlowHTML(exp)}</td>
             <td>
@@ -2711,7 +2845,7 @@
               <div style="text-align: center; width: 28%;">
                 <div style="border-bottom: 1.5px solid #334155; margin-bottom: 6px; height: 35px;"></div>
                 <div style="font-weight: 700; font-size: 12px; color: #e65100;">2. Sandeep Dhawan</div>
-                <div style="font-size: 11px; color: #64748b;">Accountant (2nd Approval)</div>
+                <div style="font-size: 11px; color: #64748b;">Accountant (Bank Expenses)</div>
               </div>
               <div style="text-align: center; width: 28%;">
                 <div style="border-bottom: 1.5px solid #334155; margin-bottom: 6px; height: 35px;"></div>
