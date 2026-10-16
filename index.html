@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Satija Paper — Payroll & Leave</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     :root {
       --blue: #1a73e8;
@@ -759,6 +760,164 @@
         padding: 14px 14px;
       }
     }
+
+    /* Main Navigation Tabs */
+    .main-nav-container {
+      background: white;
+      border-bottom: 2px solid #e8ecf2;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .main-nav-tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .main-nav-tab {
+      padding: 13px 22px;
+      border: none;
+      background: transparent;
+      font-size: 14px;
+      font-weight: 700;
+      color: #64748b;
+      cursor: pointer;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all .2s;
+      border-bottom: 3px solid transparent;
+    }
+
+    .main-nav-tab:hover {
+      color: var(--blue);
+      background: #f8faff;
+    }
+
+    .main-nav-tab.active {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+      background: #f0f6ff;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+
+    .main-nav-pill {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #e8f0fe;
+      color: var(--blue);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    /* Expense Flow Banner */
+    .expense-flow-banner {
+      background: white;
+      border-radius: 12px;
+      padding: 16px 22px;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      border: 1.5px solid #e8f0fe;
+      border-left: 5px solid var(--blue);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .flow-steps-guide {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .flow-guide-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .flow-guide-step.s1 {
+      background: #e8f0fe;
+      color: #1a56db;
+    }
+
+    .flow-guide-step.s2 {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    .flow-guide-step.s3 {
+      background: #e6f4ea;
+      color: #1e7e34;
+    }
+
+    /* Expense Table Elements */
+    .pill-to {
+      background: #f1f3f4;
+      color: #5f6368;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 10px;
+      letter-spacing: .5px;
+    }
+
+    .badge-head {
+      font-weight: 700;
+      color: #202124;
+      background: #f1f3f4;
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-block;
+      font-size: 12px;
+    }
+
+    .badge-bank {
+      font-weight: 700;
+      color: #1a73e8;
+      background: #e8f0fe;
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-block;
+      font-size: 12px;
+    }
+
+    .particular-cell {
+      text-align: left !important;
+      padding-left: 14px !important;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .amt-cell {
+      text-align: right !important;
+      padding-right: 18px !important;
+      font-weight: 700;
+      color: #1e8e3e;
+      font-size: 13px;
+    }
+
+    .total-row td {
+      background: #f0f7ff !important;
+      font-weight: 700;
+      border-top: 2px solid var(--blue);
+      border-bottom: 2px solid var(--blue);
+    }
   </style>
 </head>
 
@@ -806,7 +965,26 @@
       </div>
     </div>
 
-    <div class="dash-body">
+    <!-- Main View Switcher Tabs -->
+    <div class="main-nav-container">
+      <div class="main-nav-tabs">
+        <button id="navPayrollBtn" class="main-nav-tab active" onclick="switchMainView('payroll')">
+          👥 Staff Payroll & Attendance
+        </button>
+        <button id="navExpensesBtn" class="main-nav-tab" onclick="switchMainView('expenses')">
+          🏦 Monthly Fixed Expenses
+          <span class="main-nav-pill" id="navExpPill">October</span>
+        </button>
+      </div>
+      <div style="font-size:12px; color:#64748b; font-weight:600; padding:10px 0; display:flex; align-items:center; gap:8px;">
+        <span id="sheetSyncStatusPill" style="display:inline-flex; align-items:center; gap:5px; background:#e6f4ea; color:#1e8e3e; padding:4px 10px; border-radius:12px; font-size:11px;">
+          🟢 Sheet: 1C3_dzb...GEtAQ
+        </span>
+      </div>
+    </div>
+
+    <!-- Payroll View Section -->
+    <div id="payrollViewSection" class="dash-body">
 
       <!-- Stats Cards -->
       <div class="stats-row">
@@ -919,6 +1097,148 @@
       </div>
 
     </div>
+
+    <!-- Monthly Fixed Expenses View Section -->
+    <div id="expensesViewSection" class="dash-body" style="display:none;">
+
+      <!-- 3-Step Approval Flow Banner -->
+      <div class="expense-flow-banner">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <span style="font-size:30px;">🏦</span>
+          <div>
+            <h3 style="margin:0 0 4px; font-size:15px; color:var(--blue);">Monthly Fixed Expenses Workflow</h3>
+            <p style="margin:0; font-size:13px; color:#666;">
+              Approval Hierarchy: <b>1st: Mukesh ji (Manager)</b> ➔ <b>2nd: Sandeep ji (Accountant)</b> ➔ <b>3rd: Pranav Boss (MD Final Sign-off)</b>
+            </p>
+          </div>
+        </div>
+        <div class="flow-steps-guide">
+          <div class="flow-guide-step s1">1️⃣ Mukesh Shukla (Manager)</div>
+          <span style="color:#aaa; font-weight:700;">➔</span>
+          <div class="flow-guide-step s2">2️⃣ Sandeep Dhawan (Accountant)</div>
+          <span style="color:#aaa; font-weight:700;">➔</span>
+          <div class="flow-guide-step s3">3️⃣ Pranav Satija (MD Boss)</div>
+        </div>
+      </div>
+
+      <!-- Expense Stats Cards -->
+      <div class="stats-row">
+        <div class="stat-card c-blue">
+          <div class="stat-lbl">Total Fixed Heads</div>
+          <div class="stat-val" id="expStatTotal">0</div>
+          <div class="stat-sub">Expense items this month</div>
+        </div>
+        <div class="stat-card c-orange">
+          <div class="stat-lbl">Your Pending Actions</div>
+          <div class="stat-val" id="expStatPending">0</div>
+          <div class="stat-sub" id="expStatPendingSub">Awaiting your approval</div>
+        </div>
+        <div class="stat-card c-green">
+          <div class="stat-lbl">Approved by MD</div>
+          <div class="stat-val" id="expStatApproved">0</div>
+          <div class="stat-sub">Final sign-off complete</div>
+        </div>
+        <div class="stat-card c-purple">
+          <div class="stat-lbl">Total Monthly Amount</div>
+          <div class="stat-val" id="expStatAmount">₹0.00</div>
+          <div class="stat-sub">Sum of all fixed expenses</div>
+        </div>
+      </div>
+
+      <!-- Expense Filters -->
+      <div style="background:white; border-radius:12px; padding:13px 20px; margin-bottom:14px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+        <span style="font-size:11px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.5px;">Filters:</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-size:12px; color:#666; font-weight:600; white-space:nowrap;">📅 Month</label>
+          <select id="filterExpenseMonth" onchange="loadExpensesForSelectedMonth()"
+            style="padding:7px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none; font-weight:600; color:#1a56db;">
+            <option value="1">January</option>
+            <option value="2">February</option>
+            <option value="3">March</option>
+            <option value="4">April</option>
+            <option value="5">May</option>
+            <option value="6">June</option>
+            <option value="7">July</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10" selected>October (Default)</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+          </select>
+          <select id="filterExpenseYear" onchange="loadExpensesForSelectedMonth()"
+            style="padding:7px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none;"></select>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:200px; max-width:340px;">
+          <label style="font-size:12px; color:#666; font-weight:600; white-space:nowrap;">🔍 Search</label>
+          <input type="text" id="expenseSearch" placeholder="Search Head, Bank, Particular..." oninput="renderExpensesAll()"
+            style="width:100%; padding:7px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none;">
+        </div>
+        <button class="btn btn-ghost sm" onclick="clearExpenseFilters()" style="margin-left:auto;">✕ Clear</button>
+      </div>
+
+      <!-- Expense Control Bar -->
+      <div class="ctrl-bar">
+        <div class="tabs">
+          <button class="tab active" id="expTabAll" onclick="setExpenseTab('ALL',this)">
+            All <span class="tc" id="expTAll" style="background:var(--blue);">0</span>
+          </button>
+          <button class="tab" id="expTabMine" onclick="setExpenseTab('MY_ACTION',this)">
+            My Actions <span class="tc" id="expTMine" style="background:var(--orange);">0</span>
+          </button>
+          <button class="tab" id="expTabProg" onclick="setExpenseTab('IN_PROGRESS',this)">
+            In Progress <span class="tc" id="expTProg" style="background:var(--blue);">0</span>
+          </button>
+          <button class="tab" id="expTabApprv" onclick="setExpenseTab('APPROVED',this)">
+            Approved <span class="tc" id="expTApprv" style="background:var(--green);">0</span>
+          </button>
+        </div>
+        <div class="ctrl-right">
+          <button class="btn btn-blue sm" onclick="openExpenseAddModal()">+ Add Expense</button>
+          <button class="btn btn-ghost sm" onclick="openExpenseHeadingsModal()" title="Edit Column Titles">✏️ Edit Headings</button>
+          <button class="btn btn-green sm" onclick="exportExpenseExcel()">📥 Excel</button>
+          <button class="btn btn-orange sm" onclick="exportExpensePDF()">📄 PDF</button>
+          <button class="btn btn-ghost sm" onclick="loadExpensesFromSheet()">🔄 Sync</button>
+          <button class="btn btn-green sm" id="btnBulkApproveExpense" onclick="bulkApproveExpenses()" style="display:none;">✓ Approve All (MD)</button>
+        </div>
+      </div>
+
+      <!-- Expense Table -->
+      <div class="tbl-wrap">
+        <table id="expensesTable">
+          <thead>
+            <tr style="background:var(--blue); color:white;">
+              <th id="thExpSno" style="width:70px;">S.NO</th>
+              <th id="thExpHead" style="text-align:left; padding-left:14px;">HEAD</th>
+              <th id="thExpBank">BANK (CASH)</th>
+              <th id="thExpTo" style="width:60px;">TO</th>
+              <th id="thExpParticular" style="text-align:left; padding-left:14px;">PARTICULAR</th>
+              <th id="thExpAmount" style="text-align:right; padding-right:18px;">MONTH AMOUNT</th>
+              <th style="width:230px;">APPROVAL FLOW STATUS</th>
+              <th style="width:190px;">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="expensesBody">
+            <tr>
+              <td colspan="8" style="padding:40px; color:#aaa;">⏳ Loading fixed expenses...</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="total-row">
+              <td colspan="5" style="text-align:right; font-size:13px; color:var(--blue); padding:14px 18px;">
+                TOTAL MONTHLY FIXED EXPENSES:
+              </td>
+              <td id="expTableTotalCell" class="amt-cell" style="font-size:15px; padding:14px 18px;">
+                ₹0.00
+              </td>
+              <td colspan="2" id="expTableStatusSummary" style="font-size:12px; color:#555; text-align:center;">
+                <!-- Summary -->
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+    </div>
   </div>
 
   <div id="leaveModal" class="modal">
@@ -987,6 +1307,102 @@
     </div>
   </div>
 
+  <!-- Modal: Add / Edit Expense Row -->
+  <div id="expenseRowModal" class="modal">
+    <div class="modal-box" style="max-width:480px;">
+      <h3 id="expModalTitle">Add Fixed Expense</h3>
+      <input type="hidden" id="expEditIndex">
+      <div class="mf">
+        <label>S.No</label>
+        <input type="number" id="modalExpSno" placeholder="e.g. 1">
+      </div>
+      <div class="mf">
+        <label>Head (Category)</label>
+        <input type="text" id="modalExpHead" list="headSuggestions" placeholder="e.g. Drawing, Home Loan, Godown Rent">
+        <datalist id="headSuggestions">
+          <option value="Drawing">
+          <option value="Home Loan">
+          <option value="Godown Rent">
+          <option value="Office Rent">
+          <option value="Office Exp">
+          <option value="SWEEPER">
+          <option value="SECURITY GAURD">
+          <option value="Electricity Bill">
+          <option value="Staff Welfare">
+          <option value="Stationery">
+        </datalist>
+      </div>
+      <div class="mf">
+        <label>Bank (Cash Source)</label>
+        <input type="text" id="modalExpBank" list="bankSuggestions" placeholder="e.g. CASH TALLY PRIME, HSBC, PNB">
+        <datalist id="bankSuggestions">
+          <option value="CASH TALLY PRIME">
+          <option value="HSBC">
+          <option value="PNB PRANAV">
+          <option value="YES SILKY">
+          <option value="PNB">
+          <option value="CASH">
+          <option value="HDFC">
+          <option value="KOTAK">
+        </datalist>
+      </div>
+      <div class="mf">
+        <label>Particular (Description / Payee)</label>
+        <input type="text" id="modalExpParticular" placeholder="e.g. DRAWING PRANAV, KOTAK JOINT">
+      </div>
+      <div class="mf">
+        <label>Month Amount (₹)</label>
+        <input type="number" id="modalExpAmount" step="0.01" placeholder="e.g. 15000">
+      </div>
+      <div class="info-box">
+        💡 This expense row follows the 3-step hierarchy: <b>Mukesh ji</b> ➔ <b>Sandeep ji</b> ➔ <b>Pranav Boss</b> and syncs with Google Sheet tab <b>FixedExpenses</b>.
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-blue" style="flex:1;" onclick="saveExpenseRow()">Save Expense</button>
+        <button class="btn btn-ghost" onclick="closeExpenseRowModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Column Headings -->
+  <div id="expenseHeadingsModal" class="modal">
+    <div class="modal-box" style="max-width:480px;">
+      <h3>Edit Column Headings</h3>
+      <p style="font-size:12px; color:#666; margin-top:-14px; margin-bottom:18px;">
+        Customize the table header titles for your Monthly Fixed Expenses view and exports.
+      </p>
+      <div class="mf">
+        <label>Column 1: Serial No Heading</label>
+        <input type="text" id="modalHdnSno" value="S.NO">
+      </div>
+      <div class="mf">
+        <label>Column 2: Head Heading</label>
+        <input type="text" id="modalHdnHead" value="HEAD">
+      </div>
+      <div class="mf">
+        <label>Column 3: Bank Heading</label>
+        <input type="text" id="modalHdnBank" value="BANK (CASH)">
+      </div>
+      <div class="mf">
+        <label>Column 4: Connector Heading</label>
+        <input type="text" id="modalHdnTo" value="TO">
+      </div>
+      <div class="mf">
+        <label>Column 5: Particular Heading</label>
+        <input type="text" id="modalHdnParticular" value="PARTICULAR">
+      </div>
+      <div class="mf">
+        <label>Column 6: Amount Heading</label>
+        <input type="text" id="modalHdnAmount" value="MONTH AMOUNT">
+      </div>
+      <div class="modal-actions" style="flex-wrap:wrap;">
+        <button class="btn btn-blue" style="flex:1;" onclick="saveExpenseHeadings()">Save Headings</button>
+        <button class="btn btn-orange sm" onclick="resetExpenseHeadingsToDefault()">Reset Defaults</button>
+        <button class="btn btn-ghost" onclick="closeExpenseHeadingsModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCMMCoNXoqHtwlockPpqX6VL6AKE2KkE9rABihkYyUJNFNbNL2ZxeJhpu2L-38XKNC3A/exec";
     const USER_DISPLAY_NAMES = {
@@ -1045,6 +1461,8 @@
           const canEdit = currentUser.role === 'Admin' || currentUser.role === 'Manager' || currentUser.role === 'MD';
           document.getElementById('addEmpBtn').style.display = canEdit ? 'inline-flex' : 'none';
           loadDataFromSheet();
+          initExpenseSelectors();
+          loadExpensesFromSheet();
           showToast(`Login successful! Welcome, ${currentUser.role}.`, "success");
         })
         .catch(error => showToast(error.message || "Login failed. Please try again.", "error"));
@@ -1564,6 +1982,781 @@
         showToast("Excel exported!", "success");
       } catch (e) { showToast("Export failed!", "error"); }
     }
+
+    /* ==========================================================================
+       MONTHLY FIXED EXPENSES SYSTEM
+       - Starting Month: October (Default)
+       - 3-Tier Approval Workflow: Mukesh ji (Manager) ➔ Sandeep ji (Accountant) ➔ Pranav Boss (MD)
+       - Editable Rows & Table Headings
+       - Excel & PDF Exports
+       - Google Sheet Tab Sync ('FixedExpenses')
+       ========================================================================== */
+
+    let currentMainView = "payroll";
+    let activeExpenseTab = "ALL";
+    let expensesData = [];
+
+    const DEFAULT_EXPENSE_HEADINGS = {
+      sno: "S.NO",
+      head: "HEAD",
+      bank: "BANK (CASH)",
+      to: "TO",
+      particular: "PARTICULAR",
+      amount: "MONTH AMOUNT"
+    };
+
+    let expenseHeadings = { ...DEFAULT_EXPENSE_HEADINGS };
+
+    // Default Fixed Expenses from user's record (Starting from October)
+    const DEFAULT_OCTOBER_EXPENSES = [
+      { sno: 1, head: "Drawing", bank: "CASH TALLY PRIME", to: "TO", particular: "DRAWING PRANAV", amount: 15000, status: "Pending Manager Review (Mukesh ji)" },
+      { sno: 2, head: "Drawing", bank: "HSBC", to: "TO", particular: "PNB PRANAV", amount: 35000, status: "Pending Manager Review (Mukesh ji)" },
+      { sno: 3, head: "Home Loan", bank: "PNB PRANAV", to: "TO", particular: "KOTAK JOINT", amount: 75000, status: "Pending Manager Review (Mukesh ji)" },
+      { sno: 4, head: "Home Loan", bank: "YES SILKY", to: "TO", particular: "KOTAK JOINT", amount: 75000, status: "Pending Manager Review (Mukesh ji)" },
+      { sno: 5, head: "Godown Rent", bank: "HSBC", to: "TO", particular: "SANTOSH CLEARING", amount: 70800, status: "Pending Manager Review (Mukesh ji)" },
+      { sno: 6, head: "Office Rent", bank: "PNB", to: "TO", particular: "Veena Satija Rent 790 & 787", amount: 54000, status: "Pending Manager Review (Mukesh ji)" },
+      { sno: 7, head: "Office Exp", bank: "PNB", to: "TO", particular: "CASH Withdraw", amount: 100000, status: "Pending Manager Review (Mukesh ji)" },
+      { sno: 8, head: "SWEEPER", bank: "CASH", to: "TO", particular: "BALA AUNT", amount: 150, status: "Pending Manager Review (Mukesh ji)" },
+      { sno: 9, head: "SECURITY GAURD", bank: "CASH", to: "TO", particular: "MAAN AUNT QTRLY 1500", amount: 500, status: "Pending Manager Review (Mukesh ji)" }
+    ];
+
+    function switchMainView(view) {
+      currentMainView = view;
+      const pTab = document.getElementById('navPayrollBtn');
+      const eTab = document.getElementById('navExpensesBtn');
+      const pSec = document.getElementById('payrollViewSection');
+      const eSec = document.getElementById('expensesViewSection');
+
+      if (view === 'payroll') {
+        pTab.classList.add('active');
+        eTab.classList.remove('active');
+        pSec.style.display = 'block';
+        eSec.style.display = 'none';
+      } else {
+        pTab.classList.remove('active');
+        eTab.classList.add('active');
+        pSec.style.display = 'none';
+        eSec.style.display = 'block';
+        if (!expensesData || expensesData.length === 0) {
+          loadExpensesFromSheet();
+        } else {
+          renderExpensesAll();
+        }
+      }
+    }
+
+    function initExpenseSelectors() {
+      const now = new Date();
+      const selYear = document.getElementById('filterExpenseYear');
+      if (selYear) {
+        selYear.innerHTML = "";
+        for (let y = now.getFullYear() + 1; y >= 2024; y--) {
+          const o = document.createElement('option');
+          o.value = y; o.text = y;
+          if (y === now.getFullYear()) o.selected = true;
+          selYear.appendChild(o);
+        }
+      }
+      const selMonth = document.getElementById('filterExpenseMonth');
+      if (selMonth) {
+        selMonth.value = "10"; // Starts from October as requested!
+      }
+
+      // Load saved headings if any
+      const savedHeadings = localStorage.getItem('satija_expense_headings');
+      if (savedHeadings) {
+        try {
+          expenseHeadings = Object.assign({}, DEFAULT_EXPENSE_HEADINGS, JSON.parse(savedHeadings));
+        } catch (e) {}
+      }
+      applyExpenseHeadingsToUI();
+    }
+
+    function getSelectedExpenseMonthYear() {
+      const mEl = document.getElementById('filterExpenseMonth');
+      const yEl = document.getElementById('filterExpenseYear');
+      return {
+        month: mEl ? parseInt(mEl.value) || 10 : 10,
+        year: yEl ? parseInt(yEl.value) || new Date().getFullYear() : new Date().getFullYear()
+      };
+    }
+
+    function loadExpensesFromSheet() {
+      const { month, year } = getSelectedExpenseMonthYear();
+      const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const mName = monthNames[month] || "October";
+
+      const storageKey = `satija_fixed_expenses_${year}_${month}`;
+      const cached = localStorage.getItem(storageKey);
+
+      if (cached) {
+        try {
+          expensesData = JSON.parse(cached);
+        } catch (e) {
+          expensesData = [];
+        }
+      } else if (month === 10) {
+        // October default data matching user screenshot
+        expensesData = JSON.parse(JSON.stringify(DEFAULT_OCTOBER_EXPENSES));
+        localStorage.setItem(storageKey, JSON.stringify(expensesData));
+      } else {
+        // Template for other months
+        expensesData = DEFAULT_OCTOBER_EXPENSES.map(e => ({
+          ...e,
+          status: "Pending Manager Review (Mukesh ji)"
+        }));
+      }
+
+      renderExpensesAll();
+
+      // Fetch from Google Sheet backend
+      fetch(`${SCRIPT_URL}?action=getExpenses&month=${month}&year=${year}`)
+        .then(r => r.json())
+        .then(res => {
+          if (res && Array.isArray(res) && res.length > 0) {
+            expensesData = res;
+            localStorage.setItem(storageKey, JSON.stringify(expensesData));
+            renderExpensesAll();
+            showToast(`✅ ${res.length} fixed expenses loaded from Sheet (${mName} ${year})`, "success");
+          } else if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+            expensesData = res.data;
+            if (res.headings) {
+              expenseHeadings = Object.assign({}, DEFAULT_EXPENSE_HEADINGS, res.headings);
+              applyExpenseHeadingsToUI();
+            }
+            localStorage.setItem(storageKey, JSON.stringify(expensesData));
+            renderExpensesAll();
+            showToast(`✅ Fixed expenses loaded from Sheet (${mName} ${year})`, "success");
+          }
+        })
+        .catch(err => {
+          console.log("Sheet backend sync note (cached/default expenses active):", err);
+        });
+    }
+
+    function loadExpensesForSelectedMonth() {
+      const { month } = getSelectedExpenseMonthYear();
+      const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const pill = document.getElementById('navExpPill');
+      if (pill) pill.innerText = monthNames[month] || "Expenses";
+      loadExpensesFromSheet();
+    }
+
+    function clearExpenseFilters() {
+      const selMonth = document.getElementById('filterExpenseMonth');
+      if (selMonth) selMonth.value = "10";
+      const search = document.getElementById('expenseSearch');
+      if (search) search.value = "";
+      loadExpensesForSelectedMonth();
+    }
+
+    function getExpenseFlowInfo(exp) {
+      const s = (exp.status || "").toLowerCase();
+      if (s.includes("reject")) return { step: -1, state: "rejected" };
+      if (s.includes("approved by md") || s.includes("✓")) return { step: 99, state: "done" };
+      if (s.includes("verified by accountant") || s.includes("pending md") || s.includes("pranav")) {
+        return { step: 2, state: "active" }; // Awaiting MD Pranav Boss
+      }
+      if (s.includes("verified by manager") || s.includes("pending accountant") || s.includes("sandeep")) {
+        return { step: 1, state: "active" }; // Awaiting Accountant Sandeep ji
+      }
+      return { step: 0, state: "active" }; // Awaiting Manager Mukesh ji
+    }
+
+    function needsMyExpenseAction(exp) {
+      if (!currentUser) return false;
+      const fi = getExpenseFlowInfo(exp);
+      if (fi.state === "done" || fi.state === "rejected") return false;
+      const role = currentUser.role;
+      if (role === "Admin") return true;
+      if (role === "Manager") return fi.step === 0;
+      if (role === "Accountant") return fi.step === 1;
+      if (role === "MD") return true; // MD can review and sign off anytime
+      return false;
+    }
+
+    function expenseFlowHTML(exp) {
+      const fi = getExpenseFlowInfo(exp);
+      if (fi.state === "rejected") {
+        return `<span style="color:var(--red); font-size:11px; font-weight:700;">✗ Rejected by MD</span>`;
+      }
+      if (fi.state === "done") {
+        return `<span style="color:var(--green); font-size:11px; font-weight:700;">✓ Approved by MD</span>`;
+      }
+
+      const steps = ["Mukesh", "Sandeep", "Pranav", "Done"];
+      const active = fi.step === 0 ? 0 : fi.step === 1 ? 1 : fi.step === 2 ? 2 : 3;
+
+      let h = `<div class="flow-row">`;
+      steps.forEach((lbl, i) => {
+        const cls = i < active ? "done" : (i === active ? "active" : "pending");
+        const ico = i < active ? "✓" : (i === active ? "●" : "○");
+        h += `<div class="fstep"><div class="fdot ${cls}">${ico}</div><div class="flbl ${cls}">${lbl}</div></div>`;
+        if (i < steps.length - 1) {
+          h += `<div class="fline ${i < active ? 'done' : 'pending'}"></div>`;
+        }
+      });
+      h += `</div>`;
+      return h;
+    }
+
+    function expenseActionBtns(exp, idx) {
+      if (!currentUser) return "";
+      const role = currentUser.role;
+      const fi = getExpenseFlowInfo(exp);
+
+      // Super Boss Access: MD (Pranav Satija)
+      if (role === "MD") {
+        if (fi.state === "done") {
+          return `
+            <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+            <button class="btn btn-orange sm" title="Reset to Step 1" onclick="resetExpenseStatus(${idx})">↩ Reset</button>
+            <button class="btn btn-red sm" title="Delete Row" onclick="deleteExpenseRow(${idx})">🗑️</button>
+          `;
+        }
+        if (fi.state === "rejected") {
+          return `
+            <button class="btn btn-green sm" onclick="forwardExpense(${idx}, 'Approved by MD ✓')">✓ Approve</button>
+            <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+            <button class="btn btn-orange sm" title="Reset to Step 1" onclick="resetExpenseStatus(${idx})">↩ Reset</button>
+            <button class="btn btn-red sm" title="Delete Row" onclick="deleteExpenseRow(${idx})">🗑️</button>
+          `;
+        }
+        return `
+          <button class="btn btn-green sm" onclick="forwardExpense(${idx}, 'Approved by MD ✓')">✓ Approve</button>
+          <button class="btn btn-red sm" onclick="forwardExpense(${idx}, 'Rejected by MD ✗')">✗ Reject</button>
+          <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+          <button class="btn btn-red sm" title="Delete Row" onclick="deleteExpenseRow(${idx})">🗑️</button>
+        `;
+      }
+
+      // Admin (MIS)
+      if (role === "Admin") {
+        let b = "";
+        if (fi.step === 0) {
+          b += `<button class="btn btn-blue sm" onclick="forwardExpense(${idx}, 'Verified by Manager (Pending Accountant Sandeep ji)')">→ Sandeep</button> `;
+        } else if (fi.step === 1) {
+          b += `<button class="btn btn-green sm" onclick="forwardExpense(${idx}, 'Verified by Accountant (Pending MD Pranav Boss)')">→ Pranav</button> `;
+        } else if (fi.step === 2) {
+          b += `<button class="btn btn-green sm" onclick="forwardExpense(${idx}, 'Approved by MD ✓')">✓ Approve</button> `;
+        }
+        b += `<button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button> `;
+        b += `<button class="btn btn-orange sm" title="Reset" onclick="resetExpenseStatus(${idx})">↩</button> `;
+        b += `<button class="btn btn-red sm" title="Delete Row" onclick="deleteExpenseRow(${idx})">🗑️</button>`;
+        return b;
+      }
+
+      if (fi.state === "done") {
+        return `<span style="color:var(--green);font-size:11px;font-weight:700;">✓ Approved</span>
+                <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>`;
+      }
+      if (fi.state === "rejected") {
+        return `<span style="color:var(--red);font-size:11px;font-weight:700;">✗ Rejected</span>
+                <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>`;
+      }
+
+      // Manager (Mukesh Shukla - 1st Reviewer)
+      if (role === "Manager") {
+        if (fi.step === 0) {
+          return `
+            <button class="btn btn-blue sm" onclick="forwardExpense(${idx}, 'Verified by Manager (Pending Accountant Sandeep ji)')">→ Send to Sandeep ji</button>
+            <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+            <button class="btn btn-red sm" title="Delete Row" onclick="deleteExpenseRow(${idx})">🗑️</button>
+          `;
+        }
+        return `
+          <span style="font-size:11px;color:#1a73e8;font-weight:600;">Sent to Sandeep ji</span>
+          <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+        `;
+      }
+
+      // Accountant (Sandeep Dhawan - 2nd Reviewer)
+      if (role === "Accountant") {
+        if (fi.step === 1) {
+          return `
+            <button class="btn btn-green sm" onclick="forwardExpense(${idx}, 'Verified by Accountant (Pending MD Pranav Boss)')">✓ Verify & Send to Pranav Boss</button>
+            <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+          `;
+        }
+        if (fi.step === 0) {
+          return `
+            <span style="font-size:11px;color:#888;">Awaiting Mukesh ji</span>
+            <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+          `;
+        }
+        return `
+          <span style="font-size:11px;color:#e65100;font-weight:600;">Sent to Pranav Boss</span>
+          <button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>
+        `;
+      }
+
+      return `<button class="btn btn-ghost sm" title="Edit Row" onclick="openExpenseEditModal(${idx})">✏️</button>`;
+    }
+
+    function setExpenseTab(tab, el) {
+      activeExpenseTab = tab;
+      document.querySelectorAll('#expensesViewSection .tab').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      renderExpensesTable();
+    }
+
+    function renderExpensesAll() {
+      renderExpenseStats();
+      renderExpensesTable();
+    }
+
+    function renderExpenseStats() {
+      const totalCount = expensesData.length;
+      const approvedCount = expensesData.filter(e => getExpenseFlowInfo(e).state === "done").length;
+      const myPendingCount = expensesData.filter(e => needsMyExpenseAction(e)).length;
+      const inProgCount = expensesData.filter(e => { const f = getExpenseFlowInfo(e); return f.state !== "done" && f.state !== "rejected"; }).length;
+      const totalAmount = expensesData.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
+      const elTotal = document.getElementById('expStatTotal');
+      const elPending = document.getElementById('expStatPending');
+      const elApproved = document.getElementById('expStatApproved');
+      const elAmount = document.getElementById('expStatAmount');
+
+      if (elTotal) elTotal.innerText = totalCount;
+      if (elPending) elPending.innerText = myPendingCount;
+      if (elApproved) elApproved.innerText = approvedCount;
+      if (elAmount) elAmount.innerText = `₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      const tAll = document.getElementById('expTAll');
+      const tMine = document.getElementById('expTMine');
+      const tProg = document.getElementById('expTProg');
+      const tApprv = document.getElementById('expTApprv');
+
+      if (tAll) tAll.innerText = totalCount;
+      if (tMine) tMine.innerText = myPendingCount;
+      if (tProg) tProg.innerText = inProgCount;
+      if (tApprv) tApprv.innerText = approvedCount;
+
+      // Bulk Approve button for MD
+      const bulkBtn = document.getElementById('btnBulkApproveExpense');
+      if (bulkBtn) {
+        bulkBtn.style.display = (currentUser && (currentUser.role === 'MD' || currentUser.role === 'Admin') && inProgCount > 0) ? 'inline-flex' : 'none';
+      }
+    }
+
+    function renderExpensesTable() {
+      const tbody = document.getElementById('expensesBody');
+      if (!tbody) return;
+      const search = (document.getElementById('expenseSearch')?.value || "").trim().toLowerCase();
+
+      let list = expensesData;
+      if (activeExpenseTab === "MY_ACTION") list = expensesData.filter(e => needsMyExpenseAction(e));
+      if (activeExpenseTab === "IN_PROGRESS") list = expensesData.filter(e => { const f = getExpenseFlowInfo(e); return f.state !== "done" && f.state !== "rejected"; });
+      if (activeExpenseTab === "APPROVED") list = expensesData.filter(e => getExpenseFlowInfo(e).state === "done");
+
+      if (search) {
+        list = list.filter(e =>
+          (e.head || "").toLowerCase().includes(search) ||
+          (e.bank || "").toLowerCase().includes(search) ||
+          (e.particular || "").toLowerCase().includes(search) ||
+          String(e.amount || "").includes(search) ||
+          String(e.sno || "").includes(search)
+        );
+      }
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="padding:40px; color:#aaa; text-align:center;">No expense records found.</td></tr>`;
+        const totalCell = document.getElementById('expTableTotalCell');
+        if (totalCell) totalCell.innerText = "₹0.00";
+        const sumCell = document.getElementById('expTableStatusSummary');
+        if (sumCell) sumCell.innerText = "No entries";
+        return;
+      }
+
+      tbody.innerHTML = list.map((exp, listIdx) => {
+        const actualIdx = expensesData.indexOf(exp);
+        const amt = parseFloat(exp.amount) || 0;
+        const myAct = needsMyExpenseAction(exp);
+        const rowCls = myAct ? "action-row" : "";
+
+        return `
+          <tr class="${rowCls}">
+            <td style="font-weight:700; color:#555;">${exp.sno || (actualIdx + 1)}</td>
+            <td style="text-align:left; padding-left:14px;"><span class="badge-head">${exp.head || '—'}</span></td>
+            <td><span class="badge-bank">${exp.bank || '—'}</span></td>
+            <td><span class="pill-to">TO</span></td>
+            <td class="particular-cell">${exp.particular || '—'}</td>
+            <td class="amt-cell">₹${amt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td>${expenseFlowHTML(exp)}</td>
+            <td>
+              <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+                ${expenseActionBtns(exp, actualIdx)}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      const overallTotal = expensesData.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      const totalCell = document.getElementById('expTableTotalCell');
+      if (totalCell) {
+        totalCell.innerText = `₹${overallTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      }
+
+      const allApproved = expensesData.length > 0 && expensesData.every(e => getExpenseFlowInfo(e).state === "done");
+      const sumCell = document.getElementById('expTableStatusSummary');
+      if (sumCell) {
+        sumCell.innerHTML = allApproved
+          ? `<b style="color:var(--green);">✓ All ${expensesData.length} items MD Approved</b>`
+          : `<span style="color:#666;">Showing ${list.length} of ${expensesData.length} items</span>`;
+      }
+    }
+
+    function forwardExpense(idx, newStatus) {
+      expensesData[idx].status = newStatus;
+      syncExpensesState();
+      renderExpensesAll();
+      showToast(`✅ ${newStatus}`, "success");
+    }
+
+    function resetExpenseStatus(idx) {
+      expensesData[idx].status = "Pending Manager Review (Mukesh ji)";
+      syncExpensesState();
+      renderExpensesAll();
+      showToast("Status reset! Sent back to Manager (Mukesh ji).", "info");
+    }
+
+    function bulkApproveExpenses() {
+      if (!confirm("Are you sure you want to approve ALL active expenses as MD Pranav Boss?")) return;
+      expensesData.forEach(e => {
+        e.status = "Approved by MD ✓";
+      });
+      syncExpensesState();
+      renderExpensesAll();
+      showToast("🎉 All monthly expenses approved by MD Pranav Boss!", "success");
+    }
+
+    function syncExpensesState() {
+      const { month, year } = getSelectedExpenseMonthYear();
+      const storageKey = `satija_fixed_expenses_${year}_${month}`;
+      localStorage.setItem(storageKey, JSON.stringify(expensesData));
+      localStorage.setItem('satija_expense_headings', JSON.stringify(expenseHeadings));
+
+      // Post to Google Apps Script backend to save into 'FixedExpenses' tab
+      postToBackend({
+        action: "saveExpenses",
+        month: month,
+        year: year,
+        headings: expenseHeadings,
+        data: expensesData
+      });
+    }
+
+    // Modal Operations for Rows
+    function openExpenseAddModal() {
+      document.getElementById('expModalTitle').innerText = "Add Fixed Expense";
+      document.getElementById('expEditIndex').value = "";
+      document.getElementById('modalExpSno').value = expensesData.length + 1;
+      document.getElementById('modalExpHead').value = "";
+      document.getElementById('modalExpBank').value = "CASH";
+      document.getElementById('modalExpParticular').value = "";
+      document.getElementById('modalExpAmount').value = "";
+      document.getElementById('expenseRowModal').style.display = 'flex';
+    }
+
+    function openExpenseEditModal(idx) {
+      const e = expensesData[idx];
+      document.getElementById('expModalTitle').innerText = "Edit Fixed Expense";
+      document.getElementById('expEditIndex').value = idx;
+      document.getElementById('modalExpSno').value = e.sno || (idx + 1);
+      document.getElementById('modalExpHead').value = e.head || "";
+      document.getElementById('modalExpBank').value = e.bank || "";
+      document.getElementById('modalExpParticular').value = e.particular || "";
+      document.getElementById('modalExpAmount').value = e.amount || "";
+      document.getElementById('expenseRowModal').style.display = 'flex';
+    }
+
+    function closeExpenseRowModal() {
+      document.getElementById('expenseRowModal').style.display = 'none';
+    }
+
+    function saveExpenseRow() {
+      const sno = parseInt(document.getElementById('modalExpSno').value) || (expensesData.length + 1);
+      const head = document.getElementById('modalExpHead').value.trim();
+      const bank = document.getElementById('modalExpBank').value.trim();
+      const particular = document.getElementById('modalExpParticular').value.trim();
+      const amount = parseFloat(document.getElementById('modalExpAmount').value);
+      const editIdx = document.getElementById('expEditIndex').value;
+
+      if (!head || !particular || isNaN(amount) || amount < 0) {
+        showToast("Please fill valid Head, Particular and Amount!", "error");
+        return;
+      }
+
+      if (editIdx === "") {
+        expensesData.push({
+          sno,
+          head,
+          bank: bank || "CASH",
+          to: "TO",
+          particular,
+          amount,
+          status: "Pending Manager Review (Mukesh ji)"
+        });
+        showToast("Expense row added successfully!", "success");
+      } else {
+        const i = parseInt(editIdx);
+        expensesData[i].sno = sno;
+        expensesData[i].head = head;
+        expensesData[i].bank = bank;
+        expensesData[i].particular = particular;
+        expensesData[i].amount = amount;
+        showToast("Expense row updated successfully!", "success");
+      }
+
+      closeExpenseRowModal();
+      syncExpensesState();
+      renderExpensesAll();
+    }
+
+    function deleteExpenseRow(idx) {
+      const item = expensesData[idx];
+      if (!confirm(`Delete expense "${item.head} - ${item.particular}"?`)) return;
+      expensesData.splice(idx, 1);
+      syncExpensesState();
+      renderExpensesAll();
+      showToast("Expense row deleted.", "success");
+    }
+
+    // Modal Operations for Headings
+    function openExpenseHeadingsModal() {
+      document.getElementById('modalHdnSno').value = expenseHeadings.sno || "S.NO";
+      document.getElementById('modalHdnHead').value = expenseHeadings.head || "HEAD";
+      document.getElementById('modalHdnBank').value = expenseHeadings.bank || "BANK (CASH)";
+      document.getElementById('modalHdnTo').value = expenseHeadings.to || "TO";
+      document.getElementById('modalHdnParticular').value = expenseHeadings.particular || "PARTICULAR";
+      document.getElementById('modalHdnAmount').value = expenseHeadings.amount || "MONTH AMOUNT";
+      document.getElementById('expenseHeadingsModal').style.display = 'flex';
+    }
+
+    function closeExpenseHeadingsModal() {
+      document.getElementById('expenseHeadingsModal').style.display = 'none';
+    }
+
+    function saveExpenseHeadings() {
+      expenseHeadings.sno = document.getElementById('modalHdnSno').value.trim() || "S.NO";
+      expenseHeadings.head = document.getElementById('modalHdnHead').value.trim() || "HEAD";
+      expenseHeadings.bank = document.getElementById('modalHdnBank').value.trim() || "BANK (CASH)";
+      expenseHeadings.to = document.getElementById('modalHdnTo').value.trim() || "TO";
+      expenseHeadings.particular = document.getElementById('modalHdnParticular').value.trim() || "PARTICULAR";
+      expenseHeadings.amount = document.getElementById('modalHdnAmount').value.trim() || "MONTH AMOUNT";
+
+      applyExpenseHeadingsToUI();
+      closeExpenseHeadingsModal();
+      syncExpensesState();
+      showToast("Table headings updated & saved!", "success");
+    }
+
+    function resetExpenseHeadingsToDefault() {
+      expenseHeadings = { ...DEFAULT_EXPENSE_HEADINGS };
+      applyExpenseHeadingsToUI();
+      closeExpenseHeadingsModal();
+      syncExpensesState();
+      showToast("Headings reset to default!", "info");
+    }
+
+    function applyExpenseHeadingsToUI() {
+      const thSno = document.getElementById('thExpSno');
+      const thHead = document.getElementById('thExpHead');
+      const thBank = document.getElementById('thExpBank');
+      const thTo = document.getElementById('thExpTo');
+      const thParticular = document.getElementById('thExpParticular');
+      const thAmount = document.getElementById('thExpAmount');
+
+      if (thSno) thSno.innerText = expenseHeadings.sno;
+      if (thHead) thHead.innerText = expenseHeadings.head;
+      if (thBank) thBank.innerText = expenseHeadings.bank;
+      if (thTo) thTo.innerText = expenseHeadings.to;
+      if (thParticular) thParticular.innerText = expenseHeadings.particular;
+      if (thAmount) thAmount.innerText = expenseHeadings.amount;
+    }
+
+    function exportExpenseExcel() {
+      try {
+        const { month, year } = getSelectedExpenseMonthYear();
+        const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const mName = monthNames[month] || "October";
+
+        const rows = [
+          ["SATIJA PAPER - MONTHLY FIXED EXPENSES"],
+          [`Month: ${mName} ${year}`, "", "", "", `Generated: ${new Date().toLocaleDateString('en-IN')}`],
+          [],
+          [
+            expenseHeadings.sno || "S.NO",
+            expenseHeadings.head || "HEAD",
+            expenseHeadings.bank || "BANK (CASH)",
+            expenseHeadings.to || "TO",
+            expenseHeadings.particular || "PARTICULAR",
+            expenseHeadings.amount || "MONTH AMOUNT",
+            "APPROVAL FLOW STATUS"
+          ]
+        ];
+
+        let total = 0;
+        expensesData.forEach((row, i) => {
+          const amt = Number(row.amount) || 0;
+          total += amt;
+          rows.push([
+            row.sno || (i + 1),
+            row.head || "",
+            row.bank || "",
+            row.to || "TO",
+            row.particular || "",
+            amt,
+            row.status || "Pending Manager Review (Mukesh ji)"
+          ]);
+        });
+
+        rows.push([]);
+        rows.push(["", "TOTAL MONTHLY EXPENSES", "", "", "", total, ""]);
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [
+          { wch: 8 },
+          { wch: 20 },
+          { wch: 22 },
+          { wch: 6 },
+          { wch: 32 },
+          { wch: 16 },
+          { wch: 38 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `Expenses_${mName}`);
+        XLSX.writeFile(wb, `SatijaPaper_Fixed_Expenses_${mName}_${year}.xlsx`);
+        showToast(`✅ Excel exported: SatijaPaper_Fixed_Expenses_${mName}_${year}.xlsx`, "success");
+      } catch (e) {
+        console.error(e);
+        showToast("Excel export failed: " + e.message, "error");
+      }
+    }
+
+    function exportExpensePDF() {
+      try {
+        const { month, year } = getSelectedExpenseMonthYear();
+        const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const mName = monthNames[month] || "October";
+
+        let total = 0;
+        const rowsHtml = expensesData.map((row, i) => {
+          const amt = Number(row.amount) || 0;
+          total += amt;
+          return `
+            <tr style="border-bottom: 1px solid #e2e8f0; ${i % 2 === 1 ? 'background:#f8fafc;' : ''}">
+              <td style="padding: 9px 8px; text-align: center; font-weight: 600; color: #64748b;">${row.sno || (i + 1)}</td>
+              <td style="padding: 9px 10px; font-weight: 600; color: #1e293b;">${row.head || ''}</td>
+              <td style="padding: 9px 10px; text-align: center; color: #1a56db; font-weight: 600;">${row.bank || ''}</td>
+              <td style="padding: 9px 6px; text-align: center; color: #94a3b8; font-size: 10px; font-weight: 700;">TO</td>
+              <td style="padding: 9px 12px; font-weight: 600; color: #334155;">${row.particular || ''}</td>
+              <td style="padding: 9px 12px; text-align: right; font-weight: 700; color: #1e8e3e;">₹${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+              <td style="padding: 9px 10px; text-align: center; font-size: 11px; color:#475569;">${row.status || 'Pending'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        const printableHtml = `
+          <div id="pdfPrintableArea" style="padding: 24px 30px; font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; width: 780px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2.5px solid #1a73e8; padding-bottom: 16px; margin-bottom: 18px;">
+              <div>
+                <h1 style="margin: 0; color: #1a73e8; font-size: 22px; letter-spacing: 0.5px;">SATIJA PAPER MILLS / TRADERS</h1>
+                <h2 style="margin: 4px 0 0; color: #334155; font-size: 15px; font-weight: 600;">MONTHLY FIXED EXPENSES STATEMENT</h2>
+                <p style="margin: 4px 0 0; color: #64748b; font-size: 12px;">Month: <b style="color: #1a73e8;">${mName.toUpperCase()} ${year}</b></p>
+              </div>
+              <div style="text-align: right; font-size: 11px; color: #64748b;">
+                <p style="margin: 0;">Date: <b>${new Date().toLocaleDateString('en-IN')}</b></p>
+                <p style="margin: 3px 0 0;">Approval Flow: <b>3-Tier Chain</b></p>
+                <p style="margin: 3px 0 0;">Sheet Tab: <b>FixedExpenses</b></p>
+              </div>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; border: 1.5px solid #1a73e8;">
+              <thead>
+                <tr style="background: #1a73e8; color: white;">
+                  <th style="padding: 10px 8px; border: 1px solid #1557b0; text-align: center;">${expenseHeadings.sno}</th>
+                  <th style="padding: 10px 10px; border: 1px solid #1557b0; text-align: left;">${expenseHeadings.head}</th>
+                  <th style="padding: 10px 10px; border: 1px solid #1557b0; text-align: center;">${expenseHeadings.bank}</th>
+                  <th style="padding: 10px 6px; border: 1px solid #1557b0; text-align: center;">${expenseHeadings.to}</th>
+                  <th style="padding: 10px 12px; border: 1px solid #1557b0; text-align: left;">${expenseHeadings.particular}</th>
+                  <th style="padding: 10px 12px; border: 1px solid #1557b0; text-align: right;">${expenseHeadings.amount}</th>
+                  <th style="padding: 10px 10px; border: 1px solid #1557b0; text-align: center;">FLOW STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+                <tr style="background: #f0f4f8; font-weight: 700; border-top: 2px solid #1a73e8;">
+                  <td colspan="5" style="padding: 12px 14px; text-align: right; font-size: 13px; color: #1a56db; border: 1px solid #cbd5e1;">
+                    TOTAL MONTHLY EXPENSES:
+                  </td>
+                  <td style="padding: 12px 14px; text-align: right; font-size: 14px; color: #1e8e3e; border: 1px solid #cbd5e1;">
+                    ₹${total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td style="padding: 12px 10px; text-align: center; font-size: 11px; border: 1px solid #cbd5e1; color: #475569;">
+                    Official Record
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 10px;">
+              <div style="text-align: center; width: 28%;">
+                <div style="border-bottom: 1.5px solid #334155; margin-bottom: 6px; height: 35px;"></div>
+                <div style="font-weight: 700; font-size: 12px; color: #1a56db;">1. Mukesh Shukla</div>
+                <div style="font-size: 11px; color: #64748b;">Manager (1st Approval)</div>
+              </div>
+              <div style="text-align: center; width: 28%;">
+                <div style="border-bottom: 1.5px solid #334155; margin-bottom: 6px; height: 35px;"></div>
+                <div style="font-weight: 700; font-size: 12px; color: #e65100;">2. Sandeep Dhawan</div>
+                <div style="font-size: 11px; color: #64748b;">Accountant (2nd Approval)</div>
+              </div>
+              <div style="text-align: center; width: 28%;">
+                <div style="border-bottom: 1.5px solid #334155; margin-bottom: 6px; height: 35px;"></div>
+                <div style="font-weight: 700; font-size: 12px; color: #1e7e34;">3. Pranav Satija</div>
+                <div style="font-size: 11px; color: #64748b;">MD / Boss (Final Sign-off)</div>
+              </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 35px; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+              CONFIDENTIAL · FOR INTERNAL ACCOUNTING & MANAGEMENT USE ONLY · SATIJA PAPER
+            </div>
+          </div>
+        `;
+
+        const opt = {
+          margin: [8, 8, 8, 8],
+          filename: `SatijaPaper_Fixed_Expenses_${mName}_${year}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        const container = document.createElement('div');
+        container.innerHTML = printableHtml;
+        document.body.appendChild(container);
+
+        showToast("Generating PDF download...", "info");
+        html2pdf().set(opt).from(container.firstElementChild).save().then(() => {
+          container.remove();
+          showToast(`✅ PDF downloaded: SatijaPaper_Fixed_Expenses_${mName}_${year}.pdf`, "success");
+        }).catch(err => {
+          container.remove();
+          console.error(err);
+          showToast("PDF generation failed: " + err.message, "error");
+        });
+      } catch (err) {
+        console.error(err);
+        showToast("PDF export error: " + err.message, "error");
+      }
+    }
+
+    // Auto-init on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      initExpenseSelectors();
+    });
   </script>
 </body>
 
