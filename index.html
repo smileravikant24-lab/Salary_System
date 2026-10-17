@@ -2702,6 +2702,15 @@
                 data: expensesData
               });
             }
+          } else {
+            // Server-side sync: If sheet has no rows yet for this month, save to Google Sheet automatically
+            postToBackend({
+              action: "saveExpenses",
+              month: month,
+              year: year,
+              headings: expenseHeadings,
+              data: expensesData
+            });
           }
         })
         .catch(err => {
