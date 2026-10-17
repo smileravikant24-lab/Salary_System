@@ -1127,26 +1127,6 @@
     <!-- Monthly Fixed Expenses View Section -->
     <div id="expensesViewSection" class="dash-body" style="display:none;">
 
-      <!-- Approval Flow Banner: Bank vs Cash -->
-      <div class="expense-flow-banner">
-        <div style="display:flex; align-items:center; gap:14px;">
-          <span style="font-size:30px;">🏦</span>
-          <div>
-            <h3 style="margin:0 0 4px; font-size:15px; color:var(--blue);">Monthly Fixed Expenses Workflow</h3>
-            <p style="margin:0; font-size:12.5px; color:#555;">
-              💳 <b>Bank Expenses:</b> 1️⃣ Mukesh ji (Manager) ➔ 2️⃣ Sandeep ji (Accountant) ➔ 3️⃣ Pranav Boss (MD)<br>
-              💵 <b>Cash Expenses:</b> 1️⃣ Mukesh ji (Manager) ➔ 2️⃣ Pranav Boss (MD Direct) <span style="color:#e65100; font-weight:600;">(Sandeep ji bypass)</span>
-            </p>
-          </div>
-        </div>
-        <div class="flow-steps-guide">
-          <div class="flow-guide-step s1">1️⃣ Mukesh Shukla (Manager)</div>
-          <span style="color:#aaa; font-weight:700;">➔</span>
-          <div class="flow-guide-step s2" title="Bank expenses only">2️⃣ Sandeep Dhawan (Acct - Bank Only)</div>
-          <span style="color:#aaa; font-weight:700;">➔</span>
-          <div class="flow-guide-step s3">3️⃣ Pranav Satija (MD Boss)</div>
-        </div>
-      </div>
 
       <!-- Expense Stats Cards -->
       <div class="stats-row">
@@ -1545,11 +1525,29 @@
       const storageKey = `satija_payroll_${year}_${month}`;
       const cached = localStorage.getItem(storageKey);
 
+      let cachedList = null;
       // 1. Immediately restore cached month-wise payroll if present
       if (cached) {
         try {
-          employeeData = JSON.parse(cached);
-          renderAll();
+          cachedList = JSON.parse(cached);
+          if (Array.isArray(cachedList)) {
+            // Month Isolation: If month is NOT September 2026, strip any leaked September overrides (e.g. Richha 5 days)
+            if (!(month === 9 && year === 2026)) {
+              cachedList.forEach(e => {
+                const k = (e.name || "").toLowerCase();
+                if (k.includes('rich') && (e.leaveOverride === 5 || e.leaveOverride === '5')) {
+                  e.leaveOverride = "";
+                  e.bypass = "";
+                  e.deductionOverride = "";
+                }
+                if (month === 10 && e.status === "Approved by MD ✓") {
+                  e.status = "Pending Manager Review";
+                }
+              });
+            }
+            employeeData = cachedList;
+            renderAll();
+          }
         } catch (e) {
           employeeData = [];
         }
@@ -1582,26 +1580,51 @@
 
           // Map local cached overrides and statuses
           const localMap = {};
-          if (cached) {
-            try {
-              JSON.parse(cached).forEach(e => {
-                localMap[e.name.trim().toLowerCase()] = e;
-              });
-            } catch (e) {}
+          if (cachedList) {
+            cachedList.forEach(e => {
+              localMap[e.name.trim().toLowerCase()] = e;
+            });
           }
 
           employeeData = sheetList.map(emp => {
             const key = emp.name.trim().toLowerCase();
             const loc = localMap[key];
-            if (loc) {
-              return {
-                ...emp,
-                leaveOverride: loc.leaveOverride !== undefined && loc.leaveOverride !== "" ? loc.leaveOverride : (emp.leaveOverride !== undefined && emp.leaveOverride !== "" ? emp.leaveOverride : ""),
-                deductionOverride: loc.deductionOverride !== undefined && loc.deductionOverride !== "" ? loc.deductionOverride : (emp.deductionOverride !== undefined && emp.deductionOverride !== "" ? emp.deductionOverride : ""),
-                status: loc.status || emp.status || "Pending Manager Review"
-              };
+
+            let leaveOverride = "";
+            let deductionOverride = "";
+            let status = "Pending Manager Review";
+
+            if (month === 9 && year === 2026) {
+              // September 2026 is the completed past payroll month
+              leaveOverride = (loc && loc.leaveOverride !== undefined && loc.leaveOverride !== "")
+                ? loc.leaveOverride
+                : ((emp.leaveOverride !== undefined && emp.leaveOverride !== "") ? emp.leaveOverride : "");
+              deductionOverride = (loc && loc.deductionOverride !== undefined && loc.deductionOverride !== "")
+                ? loc.deductionOverride
+                : ((emp.deductionOverride !== undefined && emp.deductionOverride !== "") ? emp.deductionOverride : "");
+              status = "Approved by MD ✓";
+            } else {
+              // Any other month (October, November, etc.):
+              // Strictly isolate! Previous month's overrides or approved status must NOT leak!
+              if (loc && loc.leaveOverride !== undefined && loc.leaveOverride !== "") {
+                if (!(key.includes("rich") && (loc.leaveOverride === 5 || loc.leaveOverride === "5"))) {
+                  leaveOverride = loc.leaveOverride;
+                }
+              }
+              if (loc && loc.deductionOverride !== undefined && loc.deductionOverride !== "") {
+                if (!(key.includes("rich") && (loc.deductionOverride === 1530 || loc.deductionOverride === "1530"))) {
+                  deductionOverride = loc.deductionOverride;
+                }
+              }
+              status = (loc && loc.status && loc.status !== "Approved by MD ✓") ? loc.status : "Pending Manager Review";
             }
-            return emp;
+
+            return {
+              ...emp,
+              leaveOverride,
+              deductionOverride,
+              status
+            };
           });
 
           localStorage.setItem(storageKey, JSON.stringify(employeeData));
@@ -2483,7 +2506,9 @@
           amount: match && !isNaN(parseFloat(match.amount)) ? parseFloat(match.amount) : base.amount,
           status: month === 9
             ? "Approved by MD (Pranav Boss) ✓"
-            : (match && match.status ? match.status : base.status)
+            : (month === 10
+                ? ((match && match.status && !match.status.includes("Verified by Accountant") && !match.status.includes("Approved by MD")) ? match.status : "Pending Manager Review (Mukesh ji)")
+                : (match && match.status ? match.status : base.status))
         };
       });
 
@@ -2623,6 +2648,15 @@
       updateQuarterlyNotice(month);
 
       const storageKey = `satija_fixed_expenses_${year}_${month}`;
+
+      // Reset stale October cache if it had old test statuses (e.g. premature Verified by Accountant)
+      if (month === 10) {
+        const testCache = localStorage.getItem(storageKey);
+        if (testCache && testCache.includes("Verified by Accountant")) {
+          localStorage.removeItem(storageKey);
+        }
+      }
+
       const cached = localStorage.getItem(storageKey);
 
       if (cached) {
