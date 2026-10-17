@@ -2723,6 +2723,17 @@
       const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const pill = document.getElementById('navExpPill');
       if (pill) pill.innerText = monthNames[month] || "Expenses";
+
+      // Auto-reset tab to 'ALL' so approved/completed months like September never show empty due to active pending filters
+      activeExpenseTab = "ALL";
+      document.querySelectorAll('#expensesViewSection .tab').forEach(b => {
+        if (b.innerText.trim().startsWith("All")) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+
+      const search = document.getElementById('expenseSearch');
+      if (search) search.value = "";
+
       loadExpensesFromSheet();
     }
 
@@ -2731,6 +2742,11 @@
       if (selMonth) selMonth.value = "10";
       const search = document.getElementById('expenseSearch');
       if (search) search.value = "";
+      activeExpenseTab = "ALL";
+      document.querySelectorAll('#expensesViewSection .tab').forEach(b => {
+        if (b.innerText.trim().startsWith("All")) b.classList.add('active');
+        else b.classList.remove('active');
+      });
       loadExpensesForSelectedMonth();
     }
 
@@ -2991,7 +3007,15 @@
       }
 
       if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="padding:40px; color:#aaa; text-align:center;">No expense records found.</td></tr>`;
+        let emptyMsg = "No expense records found.";
+        if (activeExpenseTab === "MY_ACTION") {
+          emptyMsg = "✅ No pending actions for you in this month. (Click 'All' or 'Approved' to view records)";
+        } else if (activeExpenseTab === "IN_PROGRESS") {
+          emptyMsg = "No expenses currently in progress.";
+        } else if (activeExpenseTab === "APPROVED") {
+          emptyMsg = "No approved expenses yet for this month.";
+        }
+        tbody.innerHTML = `<tr><td colspan="8" style="padding:40px; color:#aaa; text-align:center;">${emptyMsg}</td></tr>`;
         const totalCell = document.getElementById('expTableTotalCell');
         if (totalCell) totalCell.innerText = "₹0.00";
         const sumCell = document.getElementById('expTableStatusSummary');
