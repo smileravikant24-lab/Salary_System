@@ -1179,18 +1179,10 @@
           <label style="font-size:12px; color:#666; font-weight:600; white-space:nowrap;">📅 Month</label>
           <select id="filterExpenseMonth" onchange="loadExpensesForSelectedMonth()"
             style="padding:7px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none; font-weight:600; color:#1a56db;">
-            <option value="1">January</option>
-            <option value="2">February</option>
-            <option value="3">March</option>
-            <option value="4">April</option>
-            <option value="5">May</option>
-            <option value="6">June</option>
-            <option value="7">July</option>
-            <option value="8">August</option>
-            <option value="9">September</option>
-            <option value="10" selected>October (Default)</option>
+            <option value="9">September (Completed ✓)</option>
+            <option value="10" selected>October (Current / Default)</option>
             <option value="11">November</option>
-            <option value="12">December</option>
+            <option value="12">December (Next Qtrly Due)</option>
           </select>
           <select id="filterExpenseYear" onchange="loadExpensesForSelectedMonth()"
             style="padding:7px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none;"></select>
@@ -1206,10 +1198,10 @@
       <!-- Quarterly Expense Status Notice -->
       <div id="expenseQuarterlyNotice" style="background:#eef4ff; border-left:4px solid var(--blue); padding:10px 16px; border-radius:8px; font-size:12px; margin-bottom:14px; color:#1e40af; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
         <span id="expenseQuarterlyNoticeText">
-          🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> September already completed ✓. Next due in <b>December</b>.
+          🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> Sirf September ka record completed hai ✓ (pehle quarter ka nhi). Agla payment <b>December</b> me aayega.
         </span>
         <span style="font-size:11px; font-weight:600; background:white; padding:3px 10px; border-radius:12px; color:#1a56db; border:1px solid #bfdbfe;">
-          Quarterly Cycle: Mar · Jun · Sep · Dec
+          Quarterly Cycle: Sep (Done ✓) · Dec (Next Due)
         </span>
       </div>
 
@@ -2348,8 +2340,8 @@
     ];
 
     function isQuarterlyMonth(m) {
-      // Security Guard quarterly cycle: March (3), June (6), September (9 - already paid), December (12 - next due)
-      return m === 12 || m === 3 || m === 6 || m === 9;
+      // Sirf September (completed quarter record) aur December (next due quarter). Pehle quarter (Mar/Jun) ka koi record nahi.
+      return m === 9 || m === 12;
     }
 
     function getDefaultExpensesForMonth(m) {
@@ -2363,7 +2355,13 @@
           particular: "MAAN AUNT QTRLY 1500",
           amount: 1500,
           isQuarterly: true,
-          status: "Pending Manager Review (Mukesh ji)"
+          status: m === 9 ? "Approved by MD (Pranav Boss) ✓" : "Pending Manager Review (Mukesh ji)"
+        });
+      }
+      if (m === 9) {
+        // September ka record already complete/approved hai
+        list.forEach(e => {
+          e.status = "Approved by MD (Pranav Boss) ✓";
         });
       }
       return list;
@@ -2439,16 +2437,16 @@
       const noticeText = document.getElementById('expenseQuarterlyNoticeText');
       if (!noticeText) return;
 
-      if (month === 10) {
-        noticeText.innerHTML = `🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> September already completed ✓. Next payment due in <b>December</b> (not charged in October).`;
+      if (month === 9) {
+        noticeText.innerHTML = `🛡️ <b>Quarterly Record (September):</b> Security Guard (Maan Aunt Qtrly ₹1,500) completed & recorded ✓. Pehle quarter ka koi record nahi hai. Agla payment <b>December</b> me hoga.`;
+      } else if (month === 10) {
+        noticeText.innerHTML = `🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> September record completed ✓. Agla payment <b>December</b> me aayega (October me charge nahi hoga).`;
       } else if (month === 11) {
-        noticeText.innerHTML = `🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> September already completed ✓. Next payment due in <b>December</b> (not charged in November).`;
+        noticeText.innerHTML = `🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> September record completed ✓. Agla payment <b>December</b> me aayega (November me charge nahi hoga).`;
       } else if (month === 12) {
-        noticeText.innerHTML = `🔔 <b>Quarterly Payment Due in December:</b> Security Guard (Maan Aunt Qtrly ₹1,500) is included in December Fixed Expenses!`;
-      } else if (isQuarterlyMonth(month)) {
-        noticeText.innerHTML = `🔔 <b>Quarterly Payment Month:</b> Security Guard (Maan Aunt Qtrly ₹1,500) is due and included.`;
+        noticeText.innerHTML = `🔔 <b>Quarterly Payment Due in December:</b> Security Guard (Maan Aunt Qtrly ₹1,500) December Fixed Expenses me shamil hai!`;
       } else {
-        noticeText.innerHTML = `🛡️ <b>Quarterly Schedule:</b> Security Guard paid quarterly (Mar, Jun, Sep, Dec). Not charged this month.`;
+        noticeText.innerHTML = `🛡️ <b>Quarterly Schedule:</b> Sirf September ka record hai (pehle quarter ka nhi). Agla payment December me hoga.`;
       }
     }
 
@@ -2466,10 +2464,32 @@
         try {
           expensesData = JSON.parse(cached);
 
-          // Fix Security Guard quarterly schedule:
-          // September is done, so in October (10) and November (11) it should NOT appear!
-          if (month === 10 || month === 11) {
+          // Pehle quarter ka koi record nahi hona chahiye, sirf September ka completed record aur December ka next due
+          if (month < 9 || month === 10 || month === 11) {
             expensesData = expensesData.filter(e => !(e.head || "").toUpperCase().includes("SECURITY"));
+          } else if (month === 9) {
+            // September me Security Guard record hona chahiye aur completed status me
+            const secItem = expensesData.find(e => (e.head || "").toUpperCase().includes("SECURITY"));
+            if (!secItem) {
+              expensesData.push({
+                sno: expensesData.length + 1,
+                head: "SECURITY GAURD",
+                bank: "CASH",
+                to: "TO",
+                particular: "MAAN AUNT QTRLY 1500",
+                amount: 1500,
+                isQuarterly: true,
+                status: "Approved by MD (Pranav Boss) ✓"
+              });
+            } else {
+              secItem.isQuarterly = true;
+              secItem.status = "Approved by MD (Pranav Boss) ✓";
+            }
+            expensesData.forEach(e => {
+              if (!e.status || e.status.includes("Pending")) {
+                e.status = "Approved by MD (Pranav Boss) ✓";
+              }
+            });
           } else if (month === 12 && !expensesData.some(e => (e.head || "").toUpperCase().includes("SECURITY"))) {
             // December must include quarterly Security Guard (₹1,500)
             expensesData.push({
@@ -2514,8 +2534,30 @@
           }
 
           if (sheetData.length > 0) {
-            if (month === 10 || month === 11) {
+            if (month < 9 || month === 10 || month === 11) {
               sheetData = sheetData.filter(e => !(e.head || "").toUpperCase().includes("SECURITY"));
+            } else if (month === 9) {
+              const secItem = sheetData.find(e => (e.head || "").toUpperCase().includes("SECURITY"));
+              if (!secItem) {
+                sheetData.push({
+                  sno: sheetData.length + 1,
+                  head: "SECURITY GAURD",
+                  bank: "CASH",
+                  to: "TO",
+                  particular: "MAAN AUNT QTRLY 1500",
+                  amount: 1500,
+                  isQuarterly: true,
+                  status: "Approved by MD (Pranav Boss) ✓"
+                });
+              } else {
+                secItem.isQuarterly = true;
+                secItem.status = "Approved by MD (Pranav Boss) ✓";
+              }
+              sheetData.forEach(e => {
+                if (!e.status || e.status.includes("Pending")) {
+                  e.status = "Approved by MD (Pranav Boss) ✓";
+                }
+              });
             } else if (month === 12 && !sheetData.some(e => (e.head || "").toUpperCase().includes("SECURITY"))) {
               sheetData.push({
                 sno: sheetData.length + 1,
