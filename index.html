@@ -2420,14 +2420,28 @@
       { sno: 8, head: "SWEEPER", bank: "CASH", to: "TO", particular: "BALA AUNT", amount: 150, status: "Pending Manager Review (Mukesh ji)" }
     ];
 
-    function isQuarterlyMonth(m) {
-      // Sirf September (completed quarter record) aur December (next due quarter). Pehle quarter (Mar/Jun) ka koi record nahi.
-      return m === 9 || m === 12;
-    }
-
     function getDefaultExpensesForMonth(m) {
+      if (m === 9) {
+        // September is strictly the completed Q3 quarterly record (1 item: ₹1,500)
+        return [
+          {
+            sno: 1,
+            head: "SECURITY GAURD",
+            bank: "CASH",
+            to: "TO",
+            particular: "MAAN AUNT QTRLY 1500",
+            amount: 1500,
+            isQuarterly: true,
+            status: "Approved by MD (Pranav Boss) ✓"
+          }
+        ];
+      }
+
+      // Base 8 monthly fixed expenses for Oct, Nov, Dec
       const list = JSON.parse(JSON.stringify(BASE_MONTHLY_FIXED_EXPENSES));
-      if (isQuarterlyMonth(m)) {
+
+      // December includes quarterly Security Guard (9 items)
+      if (m === 12) {
         list.push({
           sno: list.length + 1,
           head: "SECURITY GAURD",
@@ -2436,16 +2450,82 @@
           particular: "MAAN AUNT QTRLY 1500",
           amount: 1500,
           isQuarterly: true,
-          status: m === 9 ? "Approved by MD (Pranav Boss) ✓" : "Pending Manager Review (Mukesh ji)"
+          status: "Pending Manager Review (Mukesh ji)"
         });
       }
-      if (m === 9) {
-        // September ka record already complete/approved hai
-        list.forEach(e => {
-          e.status = "Approved by MD (Pranav Boss) ✓";
-        });
-      }
+
       return list;
+    }
+
+    function sanitizeMonthExpenses(rawList, month) {
+      if (!Array.isArray(rawList) || rawList.length === 0) {
+        return getDefaultExpensesForMonth(month);
+      }
+
+      if (month === 9) {
+        // September strictly contains only the Q3 completed Security Guard record!
+        const sec = rawList.find(e => (e.head || "").toUpperCase().includes("SECURITY"));
+        return [
+          {
+            sno: 1,
+            head: "SECURITY GAURD",
+            bank: "CASH",
+            to: "TO",
+            particular: "MAAN AUNT QTRLY 1500",
+            amount: sec ? (parseFloat(sec.amount) || 1500) : 1500,
+            isQuarterly: true,
+            status: "Approved by MD (Pranav Boss) ✓"
+          }
+        ];
+      }
+
+      // For Oct, Nov, Dec: deduplicate by (head + particular + bank)
+      const seen = new Set();
+      const deduped = [];
+      rawList.forEach(e => {
+        const head = (e.head || "").trim().toUpperCase();
+        const particular = (e.particular || "").trim().toUpperCase();
+        const bank = (e.bank || "").trim().toUpperCase();
+        const key = `${head}___${particular}___${bank}`;
+
+        // Security Guard should NOT appear in Oct (10) or Nov (11)
+        if ((month === 10 || month === 11) && head.includes("SECURITY")) {
+          return;
+        }
+
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push({ ...e });
+        }
+      });
+
+      // December must include Security Guard if missing
+      if (month === 12 && !deduped.some(e => (e.head || "").toUpperCase().includes("SECURITY"))) {
+        deduped.push({
+          sno: deduped.length + 1,
+          head: "SECURITY GAURD",
+          bank: "CASH",
+          to: "TO",
+          particular: "MAAN AUNT QTRLY 1500",
+          amount: 1500,
+          isQuarterly: true,
+          status: "Pending Manager Review (Mukesh ji)"
+        });
+      }
+
+      // Ensure base 8 items exist in Oct, Nov, Dec
+      if (month >= 10) {
+        BASE_MONTHLY_FIXED_EXPENSES.forEach(baseItem => {
+          const baseKey = `${baseItem.head.trim().toUpperCase()}___${baseItem.particular.trim().toUpperCase()}___${baseItem.bank.trim().toUpperCase()}`;
+          if (!seen.has(baseKey)) {
+            seen.add(baseKey);
+            deduped.push({ ...baseItem });
+          }
+        });
+      }
+
+      deduped.forEach((e, idx) => { e.sno = idx + 1; });
+      return deduped;
     }
 
     function isCashExpense(exp) {
@@ -2470,11 +2550,7 @@
         eTab.classList.add('active');
         pSec.style.display = 'none';
         eSec.style.display = 'block';
-        if (!expensesData || expensesData.length === 0) {
-          loadExpensesFromSheet();
-        } else {
-          renderExpensesAll();
-        }
+        loadExpensesForSelectedMonth();
       }
     }
 
@@ -2519,13 +2595,13 @@
       if (!noticeText) return;
 
       if (month === 9) {
-        noticeText.innerHTML = `🛡️ <b>Quarterly Record (September):</b> Security Guard (Maan Aunt Qtrly ₹1,500) completed & recorded ✓. Pehle quarter ka koi record nahi hai. Agla payment <b>December</b> me hoga.`;
+        noticeText.innerHTML = `🛡️ <b>September Record:</b> Sirf Quarterly Security Guard (Maan Aunt ₹1,500) completed record hai ✓. Monthly fixed expenses October se shuru hain. Total: <b>₹1,500.00</b>.`;
       } else if (month === 10) {
-        noticeText.innerHTML = `🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> September record completed ✓. Agla payment <b>December</b> me aayega (October me charge nahi hoga).`;
+        noticeText.innerHTML = `📅 <b>October Fixed Expenses:</b> 8 regular fixed expenses shamil hain (Security Guard December me aayega). Total: <b>₹4,24,950.00</b>.`;
       } else if (month === 11) {
-        noticeText.innerHTML = `🛡️ <b>Quarterly Status (Security Guard - Maan Aunt Qtrly ₹1,500):</b> September record completed ✓. Agla payment <b>December</b> me aayega (November me charge nahi hoga).`;
+        noticeText.innerHTML = `📅 <b>November Fixed Expenses:</b> 8 regular fixed expenses shamil hain (Security Guard December me aayega). Total: <b>₹4,24,950.00</b>.`;
       } else if (month === 12) {
-        noticeText.innerHTML = `🔔 <b>Quarterly Payment Due in December:</b> Security Guard (Maan Aunt Qtrly ₹1,500) December Fixed Expenses me shamil hai!`;
+        noticeText.innerHTML = `🔔 <b>December Fixed Expenses:</b> 8 regular expenses + Q4 Security Guard (₹1,500) shamil hai! Total: <b>₹4,26,450.00</b>.`;
       } else {
         noticeText.innerHTML = `🛡️ <b>Quarterly Schedule:</b> Sirf September ka record hai (pehle quarter ka nhi). Agla payment December me hoga.`;
       }
@@ -2543,60 +2619,14 @@
 
       if (cached) {
         try {
-          expensesData = JSON.parse(cached);
-
-          // Pehle quarter ka koi record nahi hona chahiye, sirf September ka completed record aur December ka next due
-          if (month < 9 || month === 10 || month === 11) {
-            expensesData = expensesData.filter(e => !(e.head || "").toUpperCase().includes("SECURITY"));
-          } else if (month === 9) {
-            // September me Security Guard record hona chahiye aur completed status me
-            const secItem = expensesData.find(e => (e.head || "").toUpperCase().includes("SECURITY"));
-            if (!secItem) {
-              expensesData.push({
-                sno: expensesData.length + 1,
-                head: "SECURITY GAURD",
-                bank: "CASH",
-                to: "TO",
-                particular: "MAAN AUNT QTRLY 1500",
-                amount: 1500,
-                isQuarterly: true,
-                status: "Approved by MD (Pranav Boss) ✓"
-              });
-            } else {
-              secItem.isQuarterly = true;
-              secItem.status = "Approved by MD (Pranav Boss) ✓";
-            }
-            expensesData.forEach(e => {
-              if (!e.status || e.status.includes("Pending")) {
-                e.status = "Approved by MD (Pranav Boss) ✓";
-              }
-            });
-          } else if (month === 12 && !expensesData.some(e => (e.head || "").toUpperCase().includes("SECURITY"))) {
-            // December must include quarterly Security Guard (₹1,500)
-            expensesData.push({
-              sno: expensesData.length + 1,
-              head: "SECURITY GAURD",
-              bank: "CASH",
-              to: "TO",
-              particular: "MAAN AUNT QTRLY 1500",
-              amount: 1500,
-              isQuarterly: true,
-              status: "Pending Manager Review (Mukesh ji)"
-            });
-          }
-
-          // Re-index sno
-          expensesData.forEach((e, idx) => { e.sno = idx + 1; });
-          localStorage.setItem(storageKey, JSON.stringify(expensesData));
+          expensesData = sanitizeMonthExpenses(JSON.parse(cached), month);
         } catch (e) {
           expensesData = getDefaultExpensesForMonth(month);
-          localStorage.setItem(storageKey, JSON.stringify(expensesData));
         }
       } else {
         expensesData = getDefaultExpensesForMonth(month);
-        localStorage.setItem(storageKey, JSON.stringify(expensesData));
       }
-
+      localStorage.setItem(storageKey, JSON.stringify(expensesData));
       renderExpensesAll();
 
       // Fetch from Google Sheet backend
@@ -2615,47 +2645,10 @@
           }
 
           if (sheetData.length > 0) {
-            if (month < 9 || month === 10 || month === 11) {
-              sheetData = sheetData.filter(e => !(e.head || "").toUpperCase().includes("SECURITY"));
-            } else if (month === 9) {
-              const secItem = sheetData.find(e => (e.head || "").toUpperCase().includes("SECURITY"));
-              if (!secItem) {
-                sheetData.push({
-                  sno: sheetData.length + 1,
-                  head: "SECURITY GAURD",
-                  bank: "CASH",
-                  to: "TO",
-                  particular: "MAAN AUNT QTRLY 1500",
-                  amount: 1500,
-                  isQuarterly: true,
-                  status: "Approved by MD (Pranav Boss) ✓"
-                });
-              } else {
-                secItem.isQuarterly = true;
-                secItem.status = "Approved by MD (Pranav Boss) ✓";
-              }
-              sheetData.forEach(e => {
-                if (!e.status || e.status.includes("Pending")) {
-                  e.status = "Approved by MD (Pranav Boss) ✓";
-                }
-              });
-            } else if (month === 12 && !sheetData.some(e => (e.head || "").toUpperCase().includes("SECURITY"))) {
-              sheetData.push({
-                sno: sheetData.length + 1,
-                head: "SECURITY GAURD",
-                bank: "CASH",
-                to: "TO",
-                particular: "MAAN AUNT QTRLY 1500",
-                amount: 1500,
-                isQuarterly: true,
-                status: "Pending Manager Review (Mukesh ji)"
-              });
-            }
-            sheetData.forEach((e, idx) => { e.sno = idx + 1; });
-            expensesData = sheetData;
+            expensesData = sanitizeMonthExpenses(sheetData, month);
             localStorage.setItem(storageKey, JSON.stringify(expensesData));
             renderExpensesAll();
-            showToast(`✅ ${expensesData.length} fixed expenses synced from Sheet (${mName} ${year})`, "success");
+            showToast(`✅ ${expensesData.length} fixed expenses synced (${mName} ${year})`, "success");
           }
         })
         .catch(err => {
@@ -2880,6 +2873,8 @@
       const myPendingCount = expensesData.filter(e => needsMyExpenseAction(e)).length;
       const inProgCount = expensesData.filter(e => { const f = getExpenseFlowInfo(e); return f.state !== "done" && f.state !== "rejected"; }).length;
       const totalAmount = expensesData.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+      const cashAmount = expensesData.filter(isCashExpense).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+      const bankAmount = expensesData.filter(e => !isCashExpense(e)).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
       const elTotal = document.getElementById('expStatTotal');
       const elPending = document.getElementById('expStatPending');
@@ -2890,6 +2885,11 @@
       if (elPending) elPending.innerText = myPendingCount;
       if (elApproved) elApproved.innerText = approvedCount;
       if (elAmount) elAmount.innerText = `₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      const statSub = document.querySelector('#expensesViewSection .stat-card.c-purple .stat-sub');
+      if (statSub) {
+        statSub.innerText = `💵 Cash: ₹${cashAmount.toLocaleString('en-IN')} · 🏦 Bank: ₹${bankAmount.toLocaleString('en-IN')}`;
+      }
 
       const tAll = document.getElementById('expTAll');
       const tMine = document.getElementById('expTMine');
@@ -2969,9 +2969,17 @@
       }).join('');
 
       const overallTotal = expensesData.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      const cashTotal = expensesData.filter(isCashExpense).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+      const bankTotal = expensesData.filter(e => !isCashExpense(e)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+
       const totalCell = document.getElementById('expTableTotalCell');
       if (totalCell) {
-        totalCell.innerText = `₹${overallTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        totalCell.innerHTML = `
+          <div style="font-size:14px; color:#1e8e3e; font-weight:700;">₹${overallTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          <div style="font-size:11px; color:#64748b; font-weight:600; margin-top:3px;">
+            💵 Cash: ₹${cashTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })} | 🏦 Bank: ₹${bankTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
+        `;
       }
 
       const allApproved = expensesData.length > 0 && expensesData.every(e => getExpenseFlowInfo(e).state === "done");
