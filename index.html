@@ -2436,7 +2436,7 @@
       { sno: 1, head: "Drawing", bank: "CASH TALLY PRIME", to: "TO", particular: "DRAWING PRANAV", amount: 15000, status: "Pending Manager Review (Mukesh ji)" },
       { sno: 2, head: "Drawing", bank: "HSBC", to: "TO", particular: "PNB PRANAV", amount: 35000, status: "Pending Manager Review (Mukesh ji)" },
       { sno: 3, head: "Home Loan", bank: "PNB PRANAV", to: "TO", particular: "KOTAK JOINT", amount: 75000, status: "Pending Manager Review (Mukesh ji)" },
-      { sno: 4, head: "Home Loan", bank: "YES SILKY", to: "TO", particular: "KOTAK JOINT", amount: 75000, status: "Pending Manager Review (Mukesh ji)" },
+      { sno: 4, head: "Home Loan", bank: "PNB SILKY", to: "TO", particular: "KOTAK JOINT", amount: 75000, status: "Pending Manager Review (Mukesh ji)" },
       { sno: 5, head: "Godown Rent", bank: "HSBC", to: "TO", particular: "SANTOSH CLEARING", amount: 70800, status: "Pending Manager Review (Mukesh ji)" },
       { sno: 6, head: "Office Rent", bank: "PNB", to: "TO", particular: "Veena Satija Rent 790 & 787", amount: 54000, status: "Pending Manager Review (Mukesh ji)" },
       { sno: 7, head: "Office Exp", bank: "PNB", to: "TO", particular: "CASH Withdraw", amount: 100000, status: "Pending Manager Review (Mukesh ji)" },
@@ -2487,23 +2487,34 @@
       }
 
       const baseItems = BASE_MONTHLY_FIXED_EXPENSES.map((base, idx) => {
+        const expectedSno = idx + 1;
         const bHead = (base.head || "").trim().toUpperCase();
         const bBank = (base.bank || "").trim().toUpperCase();
+        const bPart = (base.particular || "").trim().toUpperCase();
 
-        // Match against rawList to preserve verified/approved statuses and custom amounts
+        // Priority matching against sheet rows:
+        // 1. By exact sno if present (1..8)
+        // 2. By head + bank
+        // 3. By particular + bank
         const match = [...rawList].reverse().find(s => {
+          if (!s) return false;
+          if (s.sno !== undefined && !isNaN(parseInt(s.sno))) {
+            return parseInt(s.sno) === expectedSno;
+          }
           const sHead = (s.head || "").trim().toUpperCase();
           const sBank = (s.bank || "").trim().toUpperCase();
-          return sHead === bHead && sBank === bBank;
+          if (sHead === bHead && sBank === bBank) return true;
+          const sPart = (s.particular || "").trim().toUpperCase();
+          return sPart === bPart && sBank === bBank;
         });
 
         return {
           sno: idx + 1,
-          head: base.head,
-          bank: base.bank,
-          to: base.to,
-          particular: match && match.particular ? match.particular : base.particular,
-          amount: match && !isNaN(parseFloat(match.amount)) ? parseFloat(match.amount) : base.amount,
+          head: (match && match.head && match.head.trim()) ? match.head.trim() : base.head,
+          bank: (match && match.bank && match.bank.trim()) ? match.bank.trim() : base.bank,
+          to: (match && match.to && match.to.trim()) ? match.to.trim() : (base.to || "TO"),
+          particular: (match && match.particular && match.particular.trim()) ? match.particular.trim() : base.particular,
+          amount: (match && !isNaN(parseFloat(match.amount))) ? parseFloat(match.amount) : base.amount,
           status: month === 9
             ? "Approved by MD (Pranav Boss) ✓"
             : (month === 10
@@ -2516,14 +2527,18 @@
 
       // September & December include quarterly Security Guard (9th item)
       if (month === 9 || month === 12) {
-        const sec = rawList.find(e => (e.head || "").toUpperCase().includes("SECURITY"));
+        const sec = [...rawList].reverse().find(e =>
+          (e.sno !== undefined && parseInt(e.sno) === 9) ||
+          (e.head || "").toUpperCase().includes("SECURITY") ||
+          (e.particular || "").toUpperCase().includes("SECURITY")
+        );
         deduped.push({
-          sno: deduped.length + 1,
-          head: "SECURITY GAURD",
-          bank: "CASH",
-          to: "TO",
-          particular: sec && sec.particular ? sec.particular : "MAAN AUNT QTRLY 1500",
-          amount: sec && !isNaN(parseFloat(sec.amount)) ? parseFloat(sec.amount) : 1500,
+          sno: 9,
+          head: (sec && sec.head && sec.head.trim()) ? sec.head.trim() : "SECURITY GAURD",
+          bank: (sec && sec.bank && sec.bank.trim()) ? sec.bank.trim() : "CASH",
+          to: (sec && sec.to && sec.to.trim()) ? sec.to.trim() : "TO",
+          particular: (sec && sec.particular && sec.particular.trim()) ? sec.particular.trim() : "MAAN AUNT QTRLY 1500",
+          amount: (sec && !isNaN(parseFloat(sec.amount))) ? parseFloat(sec.amount) : 1500,
           isQuarterly: true,
           status: month === 9
             ? "Approved by MD (Pranav Boss) ✓"
@@ -2531,25 +2546,27 @@
         });
       }
 
-      // Preserve any genuinely custom rows added by user (marked as isCustom or distinct non-base head)
-      const baseKeys = new Set(BASE_MONTHLY_FIXED_EXPENSES.map(b => `${b.head.trim().toUpperCase()}___${b.bank.trim().toUpperCase()}`));
-      baseKeys.add("SECURITY GAURD___CASH");
-
-      const seenCustom = new Set();
+      // Preserve any additional rows (sno > base items or user added custom rows)
+      const baseCount = (month === 9 || month === 12) ? 9 : 8;
+      const seenExtra = new Set();
       rawList.forEach(e => {
         if (!e || !e.head) return;
-        const h = e.head.trim().toUpperCase();
-        const b = (e.bank || "").trim().toUpperCase();
-        const key = `${h}___${b}`;
+        const eSno = parseInt(e.sno);
+        const eHead = (e.head || "").trim().toUpperCase();
+        const ePart = (e.particular || "").trim().toUpperCase();
 
-        if (!baseKeys.has(key) && e.isCustom && !seenCustom.has(key)) {
-          seenCustom.add(key);
+        if (eSno >= 1 && eSno <= baseCount) return;
+        if (eHead.includes("SECURITY") && (month === 9 || month === 12)) return;
+
+        const key = `${eHead}___${ePart}`;
+        if (!seenExtra.has(key)) {
+          seenExtra.add(key);
           deduped.push({
             sno: deduped.length + 1,
-            head: e.head,
-            bank: e.bank || "CASH",
-            to: e.to || "TO",
-            particular: e.particular || "",
+            head: e.head.trim(),
+            bank: (e.bank || "CASH").trim(),
+            to: (e.to || "TO").trim(),
+            particular: (e.particular || "").trim(),
             amount: parseFloat(e.amount) || 0,
             status: e.status || "Pending Manager Review (Mukesh ji)",
             isCustom: true
@@ -2680,10 +2697,10 @@
             sheetData = res;
           } else if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
             sheetData = res.data;
-            if (res.headings) {
-              expenseHeadings = Object.assign({}, DEFAULT_EXPENSE_HEADINGS, res.headings);
-              applyExpenseHeadingsToUI();
-            }
+          }
+          if (res && res.headings) {
+            expenseHeadings = Object.assign({}, DEFAULT_EXPENSE_HEADINGS, res.headings);
+            applyExpenseHeadingsToUI();
           }
 
           if (sheetData.length > 0) {
