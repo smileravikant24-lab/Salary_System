@@ -1542,8 +1542,21 @@
     function loadDataFromSheet() {
       const { month, year } = getSelectedMonthYear();
       const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      document.getElementById('payrollBody').innerHTML =
-        `<tr><td colspan="10" style="padding:40px;color:#aaa;">⏳ Loading ${monthNames[month]} ${year} leave data from Google Sheet...</td></tr>`;
+      const storageKey = `satija_payroll_${year}_${month}`;
+      const cached = localStorage.getItem(storageKey);
+
+      // 1. Immediately restore cached month-wise payroll if present
+      if (cached) {
+        try {
+          employeeData = JSON.parse(cached);
+          renderAll();
+        } catch (e) {
+          employeeData = [];
+        }
+      } else {
+        document.getElementById('payrollBody').innerHTML =
+          `<tr><td colspan="10" style="padding:40px;color:#aaa;">⏳ Loading ${monthNames[month]} ${year} leave data from Google Sheet...</td></tr>`;
+      }
       setAttPill("warn", "⏳ Syncing...");
 
       updatePayrollNavPill();
@@ -1565,7 +1578,34 @@
         .then(r => r.json())
         .then(data => {
           if (data.error) throw new Error(data.error);
-          employeeData = Array.isArray(data) ? data : [];
+          const sheetList = Array.isArray(data) ? data : [];
+
+          // Map local cached overrides and statuses
+          const localMap = {};
+          if (cached) {
+            try {
+              JSON.parse(cached).forEach(e => {
+                localMap[e.name.trim().toLowerCase()] = e;
+              });
+            } catch (e) {}
+          }
+
+          employeeData = sheetList.map(emp => {
+            const key = emp.name.trim().toLowerCase();
+            const loc = localMap[key];
+            if (loc) {
+              return {
+                ...emp,
+                leaveOverride: loc.leaveOverride !== undefined && loc.leaveOverride !== "" ? loc.leaveOverride : (emp.leaveOverride !== undefined && emp.leaveOverride !== "" ? emp.leaveOverride : ""),
+                deductionOverride: loc.deductionOverride !== undefined && loc.deductionOverride !== "" ? loc.deductionOverride : (emp.deductionOverride !== undefined && emp.deductionOverride !== "" ? emp.deductionOverride : ""),
+                status: loc.status || emp.status || "Pending Manager Review"
+              };
+            }
+            return emp;
+          });
+
+          localStorage.setItem(storageKey, JSON.stringify(employeeData));
+
           const totalLeaves = employeeData.reduce((s, e) => s + (parseFloat(e.leaves) || 0), 0);
           const empWithLeaves = employeeData.filter(e => (parseFloat(e.leaves) || 0) > 0).length;
           if (totalLeaves > 0) {
@@ -1574,15 +1614,19 @@
             setAttPill("warn", `📋 No approved leaves found for ${monthNames[month]} ${year}`);
           }
           renderAll();
-          showToast(`✅ ${employeeData.length} employees loaded — ${monthNames[month]} ${year}`, "success");
+          showToast(`✅ ${employeeData.length} employees synced — ${monthNames[month]} ${year}`, "success");
         })
         .catch(err => {
           console.error(err);
-          employeeData = [];
-          document.getElementById('payrollBody').innerHTML =
-            `<tr><td colspan="10" style="padding:40px;color:var(--red);">⚠️ Could not connect to Google Sheet.<br><small style="color:#999;">${err.message}</small></td></tr>`;
-          setAttPill("err", "❌ Sheet not connected");
-          showToast("Sheet connection failed!", "error");
+          if (!cached) {
+            employeeData = [];
+            document.getElementById('payrollBody').innerHTML =
+              `<tr><td colspan="10" style="padding:40px;color:var(--red);">⚠️ Could not connect to Google Sheet.<br><small style="color:#999;">${err.message}</small></td></tr>`;
+            setAttPill("err", "❌ Sheet not connected");
+            showToast("Sheet connection failed!", "error");
+          } else {
+            setAttPill("warn", `⚡ Working in cached/offline mode for ${monthNames[month]} ${year}`);
+          }
         });
     }
 
@@ -1781,7 +1825,8 @@
         const rowCls = myAct ? "action-row" : (isApproved ? "row-approved" : "");
         const canBypass = currentUser.role === "Admin" ||
           currentUser.role === "Manager" || currentUser.role === "MD";
-        const canEditRow = canBypass && !isApproved;
+        const isBoss = currentUser && (currentUser.role === "MD" || currentUser.role === "Admin");
+        const canEditRow = canBypass && (!isApproved || isBoss);
 
         const cl = parseFloat(emp.leaveCL) || 0;
         const sl = parseFloat(emp.leaveSL) || 0;
@@ -1809,44 +1854,54 @@
 
         const effectiveLeave = amounts.leaveDays;
         const deductionValue = amounts.leaveDeduction.toFixed(2);
+        const hasLeaveOverride = (emp.leaveOverride !== undefined && emp.leaveOverride !== "" && Number.isFinite(Number(emp.leaveOverride))) ||
+          (emp.bypass !== undefined && emp.bypass !== "" && Number(emp.bypass) > 0);
+        const hasDedOverride = emp.deductionOverride !== undefined && emp.deductionOverride !== "" && Number.isFinite(Number(emp.deductionOverride));
 
         let leaveInputHTML;
-        if (isApproved) {
+        if (isApproved && !isBoss) {
           leaveInputHTML = `
             <div style="display:flex; align-items:center; justify-content:center; gap:5px;">
               <span style="font-weight:700; color:#1e293b; font-size:13px;">${effectiveLeave} <small style="color:#64748b; font-weight:600;">days</small></span>
               <span class="locked-badge" title="Locked: Record is Approved">🔒</span>
             </div>
+            ${hasLeaveOverride ? `<div style="font-size:9.5px; color:#d97706; font-weight:700; margin-top:2px;">⚡ Overridden</div>` : ''}
             <div style="margin-top:4px;">${lvBadge}</div>
           `;
         } else {
           leaveInputHTML = `
             <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
               <input type="number" class="bypass-inp" min="0" step="0.5" value="${effectiveLeave}"
-                id="leaveOverride_${actualIdx}" title="Override leave days used for payroll"
-                ${canEditRow ? '' : 'disabled'}>
+                id="leaveOverride_${actualIdx}" title="Override leave days used for payroll (Press Enter or click Save)"
+                ${canEditRow ? '' : 'disabled'}
+                onkeydown="if(event.key==='Enter'){updateLeaveOverride(${actualIdx}, this.value)}">
               ${canEditRow ? `<button class="btn btn-blue sm" onclick="updateLeaveOverride(${actualIdx}, document.getElementById('leaveOverride_${actualIdx}').value)">Save</button>` : ''}
             </div>
-            <div style="margin-top:4px;">${lvBadge}</div>
+            ${hasLeaveOverride ? `<div style="font-size:9.5px; color:#d97706; font-weight:700; margin-top:2px;">⚡ Overridden</div>` : ''}
+            ${isApproved && isBoss ? `<div style="font-size:9.5px; color:#15803d; font-weight:700; margin-top:1px;">🔒 Approved (MD Can Edit)</div>` : ''}
+            <div style="margin-top:3px;">${lvBadge}</div>
           `;
         }
 
         let dedInputHTML;
-        if (isApproved) {
+        if (isApproved && !isBoss) {
           dedInputHTML = `
             <div style="display:flex; align-items:center; justify-content:center; gap:5px;">
               <span style="font-weight:700; color:#dc2626; font-size:13px;">₹${parseFloat(deductionValue).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span class="locked-badge" title="Locked: Record is Approved">🔒</span>
             </div>
+            ${hasDedOverride ? `<div style="font-size:9.5px; color:#d97706; font-weight:700; margin-top:2px; text-align:center;">⚡ Custom Ded</div>` : ''}
           `;
         } else {
           dedInputHTML = `
             <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
               <input type="number" class="bypass-inp" min="0" step="0.01" value="${deductionValue}"
-                id="dedOverride_${actualIdx}" title="Edit leave deduction amount"
-                ${canEditRow ? '' : 'disabled'}>
+                id="dedOverride_${actualIdx}" title="Edit leave deduction amount (Press Enter or click Save)"
+                ${canEditRow ? '' : 'disabled'}
+                onkeydown="if(event.key==='Enter'){updateDeductionOverride(${actualIdx}, this.value)}">
               ${canEditRow ? `<button class="btn btn-blue sm" onclick="updateDeductionOverride(${actualIdx}, document.getElementById('dedOverride_${actualIdx}').value)">Save</button>` : ''}
             </div>
+            ${hasDedOverride ? `<div style="font-size:9.5px; color:#d97706; font-weight:700; margin-top:2px; text-align:center;">⚡ Custom Ded</div>` : ''}
           `;
         }
 
@@ -1940,31 +1995,40 @@
     }
 
     function updateLeaveOverride(idx, val) {
-      if (getFlowInfo(employeeData[idx]).state === "done") {
-        showToast("⚠️ Record is already approved and locked. No changes allowed!", "error");
+      const isBoss = currentUser && (currentUser.role === "MD" || currentUser.role === "Admin");
+      if (getFlowInfo(employeeData[idx]).state === "done" && !isBoss) {
+        showToast("⚠️ Record is already approved and locked. Only MD can override!", "error");
         renderAll();
         return;
       }
-      const leaveDays = parseFloat(val);
-      if (!Number.isFinite(leaveDays) || leaveDays < 0) {
-        showToast("Please enter valid leave days.", "error");
-        renderAll();
-        return;
+      if (val === "" || val === null || val === undefined) {
+        employeeData[idx].leaveOverride = "";
+        employeeData[idx].bypass = "";
+        employeeData[idx].deductionOverride = "";
+      } else {
+        const leaveDays = parseFloat(val);
+        if (!Number.isFinite(leaveDays) || leaveDays < 0) {
+          showToast("Please enter valid leave days (0 or positive number).", "error");
+          renderAll();
+          return;
+        }
+        employeeData[idx].leaveOverride = leaveDays;
+        employeeData[idx].bypass = leaveDays;
+        employeeData[idx].deductionOverride = "";
       }
-      employeeData[idx].leaveOverride = leaveDays;
-      employeeData[idx].deductionOverride = "";
       syncPayrollState();
       renderAll();
-      showToast("Leave days updated & saved!", "success");
+      showToast(`✅ Leave days updated (${employeeData[idx].leaveOverride === "" ? "Default Attendance" : employeeData[idx].leaveOverride + " days"}) & saved month-wise!`, "success");
     }
 
     function updateDeductionOverride(idx, val) {
-      if (getFlowInfo(employeeData[idx]).state === "done") {
-        showToast("⚠️ Record is already approved and locked. No changes allowed!", "error");
+      const isBoss = currentUser && (currentUser.role === "MD" || currentUser.role === "Admin");
+      if (getFlowInfo(employeeData[idx]).state === "done" && !isBoss) {
+        showToast("⚠️ Record is already approved and locked. Only MD can override!", "error");
         renderAll();
         return;
       }
-      if (val === "") {
+      if (val === "" || val === null || val === undefined) {
         employeeData[idx].deductionOverride = "";
       } else {
         const deduction = parseFloat(val);
@@ -1977,15 +2041,17 @@
       }
       syncPayrollState();
       renderAll();
-      showToast("Deduction updated & saved!", "success");
+      showToast(`✅ Deduction updated (${employeeData[idx].deductionOverride === "" ? "Auto-calculated" : "₹" + employeeData[idx].deductionOverride}) & saved month-wise!`, "success");
     }
 
     function getPayrollAmounts(emp, workingDays) {
       const salary = Number(emp.salary) || 0;
-      const hasLeaveOverride = emp.leaveOverride !== undefined && emp.leaveOverride !== "" &&
-        Number.isFinite(Number(emp.leaveOverride)) && Number(emp.leaveOverride) >= 0;
+      const rawOverride = (emp.leaveOverride !== undefined && emp.leaveOverride !== "")
+        ? emp.leaveOverride
+        : ((emp.bypass !== undefined && emp.bypass !== "" && Number(emp.bypass) > 0) ? emp.bypass : "");
+      const hasLeaveOverride = rawOverride !== "" && Number.isFinite(Number(rawOverride)) && Number(rawOverride) >= 0;
       const leaveDays = hasLeaveOverride
-        ? Math.max(0, Number(emp.leaveOverride))
+        ? Math.max(0, Number(rawOverride))
         : Number(emp.leaves) || 0;
       const perDay = workingDays > 0 ? salary / workingDays : 0;
       const hasDeductionOverride = emp.deductionOverride !== undefined && emp.deductionOverride !== "" &&
@@ -2012,7 +2078,8 @@
 
     function openEditModal(idx) {
       const e = employeeData[idx];
-      if (getFlowInfo(e).state === "done") {
+      const isBoss = currentUser && (currentUser.role === "MD" || currentUser.role === "Admin");
+      if (getFlowInfo(e).state === "done" && !isBoss) {
         showToast("⚠️ Approved record is locked and cannot be edited! Reset status first.", "error");
         return;
       }
@@ -2035,6 +2102,7 @@
       const salary = parseFloat(document.getElementById('modalSalary').value);
       const editIdx = document.getElementById('editIndex').value;
       const origName = document.getElementById('editOrigName').value;
+      const isBoss = currentUser && (currentUser.role === "MD" || currentUser.role === "Admin");
 
       if (!name || isNaN(salary) || salary <= 0) {
         showToast("Please enter valid name and salary!", "error"); return;
@@ -2043,9 +2111,10 @@
       if (editIdx === "") {
         employeeData.push({ name, mode, salary, leaves: 0, leaveOverride: "", deductionOverride: "", status: "Pending Manager Review" });
         postToBackend({ action: "addEmployee", data: { name, mode, salary } });
+        syncPayrollState();
         showToast("Employee added! Leaves will auto-load from Attendance sheet.", "success");
       } else {
-        if (employeeData[editIdx] && getFlowInfo(employeeData[editIdx]).state === "done") {
+        if (employeeData[editIdx] && getFlowInfo(employeeData[editIdx]).state === "done" && !isBoss) {
           showToast("⚠️ Cannot modify an approved record! It is locked.", "error");
           closeModal();
           return;
@@ -2054,27 +2123,39 @@
         employeeData[editIdx].mode = mode;
         employeeData[editIdx].salary = salary;
         postToBackend({ action: "updateEmployee", oldName: origName, data: { name, mode, salary } });
-        showToast("Employee updated!", "success");
+        syncPayrollState();
+        showToast("Employee updated & saved month-wise!", "success");
       }
       closeModal();
       renderAll();
     }
 
     function deleteEmp(idx) {
-      if (employeeData[idx] && getFlowInfo(employeeData[idx]).state === "done") {
-        showToast("⚠️ Approved records are locked and cannot be deleted!", "error");
+      const isBoss = currentUser && (currentUser.role === "MD" || currentUser.role === "Admin");
+      if (employeeData[idx] && getFlowInfo(employeeData[idx]).state === "done" && !isBoss) {
+        showToast("⚠️ Approved records are locked and cannot be deleted! Unlock first.", "error");
         return;
       }
       if (!confirm(`Delete "${employeeData[idx].name}" from payroll?`)) return;
       const name = employeeData[idx].name;
       employeeData.splice(idx, 1);
+      syncPayrollState();
       postToBackend({ action: "deleteEmployee", name });
       renderAll();
       showToast("Employee deleted.", "success");
     }
 
     function syncPayrollState() {
-      postToBackend({ action: "savePayroll", data: employeeData });
+      const { month, year } = getSelectedMonthYear();
+      const storageKey = `satija_payroll_${year}_${month}`;
+      localStorage.setItem(storageKey, JSON.stringify(employeeData));
+
+      postToBackend({
+        action: "savePayroll",
+        month: month,
+        year: year,
+        data: employeeData
+      });
     }
 
     function postToBackend(payload) {
