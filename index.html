@@ -2479,50 +2479,71 @@
         ];
       }
 
-      // For Oct, Nov, Dec: deduplicate by (head + particular + bank)
-      const seen = new Set();
-      const deduped = [];
-      rawList.forEach(e => {
-        const head = (e.head || "").trim().toUpperCase();
-        const particular = (e.particular || "").trim().toUpperCase();
-        const bank = (e.bank || "").trim().toUpperCase();
-        const key = `${head}___${particular}___${bank}`;
+      // For Oct, Nov, Dec: Strictly start with the 8 Base Monthly Fixed Expenses
+      const baseItems = BASE_MONTHLY_FIXED_EXPENSES.map((base, idx) => {
+        const bHead = (base.head || "").trim().toUpperCase();
+        const bBank = (base.bank || "").trim().toUpperCase();
 
-        // Security Guard should NOT appear in Oct (10) or Nov (11)
-        if ((month === 10 || month === 11) && head.includes("SECURITY")) {
-          return;
-        }
+        // Match against rawList to preserve verified/approved statuses and custom amounts
+        const match = [...rawList].reverse().find(s => {
+          const sHead = (s.head || "").trim().toUpperCase();
+          const sBank = (s.bank || "").trim().toUpperCase();
+          return sHead === bHead && sBank === bBank;
+        });
 
-        if (!seen.has(key)) {
-          seen.add(key);
-          deduped.push({ ...e });
-        }
+        return {
+          sno: idx + 1,
+          head: base.head,
+          bank: base.bank,
+          to: base.to,
+          particular: match && match.particular ? match.particular : base.particular,
+          amount: match && !isNaN(parseFloat(match.amount)) ? parseFloat(match.amount) : base.amount,
+          status: match && match.status ? match.status : base.status
+        };
       });
 
-      // December must include Security Guard if missing
-      if (month === 12 && !deduped.some(e => (e.head || "").toUpperCase().includes("SECURITY"))) {
+      const deduped = [...baseItems];
+
+      // December must include Security Guard (9th item)
+      if (month === 12) {
+        const sec = rawList.find(e => (e.head || "").toUpperCase().includes("SECURITY"));
         deduped.push({
           sno: deduped.length + 1,
           head: "SECURITY GAURD",
           bank: "CASH",
           to: "TO",
-          particular: "MAAN AUNT QTRLY 1500",
-          amount: 1500,
+          particular: sec && sec.particular ? sec.particular : "MAAN AUNT QTRLY 1500",
+          amount: sec && !isNaN(parseFloat(sec.amount)) ? parseFloat(sec.amount) : 1500,
           isQuarterly: true,
-          status: "Pending Manager Review (Mukesh ji)"
+          status: sec && sec.status ? sec.status : "Pending Manager Review (Mukesh ji)"
         });
       }
 
-      // Ensure base 8 items exist in Oct, Nov, Dec
-      if (month >= 10) {
-        BASE_MONTHLY_FIXED_EXPENSES.forEach(baseItem => {
-          const baseKey = `${baseItem.head.trim().toUpperCase()}___${baseItem.particular.trim().toUpperCase()}___${baseItem.bank.trim().toUpperCase()}`;
-          if (!seen.has(baseKey)) {
-            seen.add(baseKey);
-            deduped.push({ ...baseItem });
-          }
-        });
-      }
+      // Preserve any genuinely custom rows added by user (marked as isCustom or distinct non-base head)
+      const baseKeys = new Set(BASE_MONTHLY_FIXED_EXPENSES.map(b => `${b.head.trim().toUpperCase()}___${b.bank.trim().toUpperCase()}`));
+      baseKeys.add("SECURITY GAURD___CASH");
+
+      const seenCustom = new Set();
+      rawList.forEach(e => {
+        if (!e || !e.head) return;
+        const h = e.head.trim().toUpperCase();
+        const b = (e.bank || "").trim().toUpperCase();
+        const key = `${h}___${b}`;
+
+        if (!baseKeys.has(key) && e.isCustom && !seenCustom.has(key)) {
+          seenCustom.add(key);
+          deduped.push({
+            sno: deduped.length + 1,
+            head: e.head,
+            bank: e.bank || "CASH",
+            to: e.to || "TO",
+            particular: e.particular || "",
+            amount: parseFloat(e.amount) || 0,
+            status: e.status || "Pending Manager Review (Mukesh ji)",
+            isCustom: true
+          });
+        }
+      });
 
       deduped.forEach((e, idx) => { e.sno = idx + 1; });
       return deduped;
@@ -2649,6 +2670,17 @@
             localStorage.setItem(storageKey, JSON.stringify(expensesData));
             renderExpensesAll();
             showToast(`✅ ${expensesData.length} fixed expenses synced (${mName} ${year})`, "success");
+
+            // Auto-cleanup: If sheet had duplicate/bloated rows (like 104 entries), sync back the clean sanitized entries
+            if (sheetData.length > 15) {
+              postToBackend({
+                action: "saveExpenses",
+                month: month,
+                year: year,
+                headings: expenseHeadings,
+                data: expensesData
+              });
+            }
           }
         })
         .catch(err => {
