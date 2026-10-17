@@ -1179,10 +1179,10 @@
           <label style="font-size:12px; color:#666; font-weight:600; white-space:nowrap;">📅 Month</label>
           <select id="filterExpenseMonth" onchange="loadExpensesForSelectedMonth()"
             style="padding:7px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none; font-weight:600; color:#1a56db;">
-            <option value="9">September (Completed ✓)</option>
-            <option value="10" selected>October (Current / Default)</option>
-            <option value="11">November</option>
-            <option value="12">December (Next Qtrly Due)</option>
+            <option value="9">September (Completed ✓ - 9 Items)</option>
+            <option value="10" selected>October (Current / Default - 8 Items)</option>
+            <option value="11">November (8 Items)</option>
+            <option value="12">December (Next Qtrly Due - 9 Items)</option>
           </select>
           <select id="filterExpenseYear" onchange="loadExpensesForSelectedMonth()"
             style="padding:7px 10px; border:1.5px solid #ddd; border-radius:8px; font-size:13px; outline:none;"></select>
@@ -2421,24 +2421,25 @@
     ];
 
     function getDefaultExpensesForMonth(m) {
-      if (m === 9) {
-        // September is strictly the completed Q3 quarterly record (1 item: ₹1,500)
-        return [
-          {
-            sno: 1,
-            head: "SECURITY GAURD",
-            bank: "CASH",
-            to: "TO",
-            particular: "MAAN AUNT QTRLY 1500",
-            amount: 1500,
-            isQuarterly: true,
-            status: "Approved by MD (Pranav Boss) ✓"
-          }
-        ];
-      }
-
-      // Base 8 monthly fixed expenses for Oct, Nov, Dec
       const list = JSON.parse(JSON.stringify(BASE_MONTHLY_FIXED_EXPENSES));
+
+      // September has all 8 regular expenses + Q3 Security Guard (all Approved by MD)
+      if (m === 9) {
+        list.forEach(e => {
+          e.status = "Approved by MD (Pranav Boss) ✓";
+        });
+        list.push({
+          sno: list.length + 1,
+          head: "SECURITY GAURD",
+          bank: "CASH",
+          to: "TO",
+          particular: "MAAN AUNT QTRLY 1500",
+          amount: 1500,
+          isQuarterly: true,
+          status: "Approved by MD (Pranav Boss) ✓"
+        });
+        return list;
+      }
 
       // December includes quarterly Security Guard (9 items)
       if (m === 12) {
@@ -2462,24 +2463,6 @@
         return getDefaultExpensesForMonth(month);
       }
 
-      if (month === 9) {
-        // September strictly contains only the Q3 completed Security Guard record!
-        const sec = rawList.find(e => (e.head || "").toUpperCase().includes("SECURITY"));
-        return [
-          {
-            sno: 1,
-            head: "SECURITY GAURD",
-            bank: "CASH",
-            to: "TO",
-            particular: "MAAN AUNT QTRLY 1500",
-            amount: sec ? (parseFloat(sec.amount) || 1500) : 1500,
-            isQuarterly: true,
-            status: "Approved by MD (Pranav Boss) ✓"
-          }
-        ];
-      }
-
-      // For Oct, Nov, Dec: Strictly start with the 8 Base Monthly Fixed Expenses
       const baseItems = BASE_MONTHLY_FIXED_EXPENSES.map((base, idx) => {
         const bHead = (base.head || "").trim().toUpperCase();
         const bBank = (base.bank || "").trim().toUpperCase();
@@ -2498,14 +2481,16 @@
           to: base.to,
           particular: match && match.particular ? match.particular : base.particular,
           amount: match && !isNaN(parseFloat(match.amount)) ? parseFloat(match.amount) : base.amount,
-          status: match && match.status ? match.status : base.status
+          status: month === 9
+            ? "Approved by MD (Pranav Boss) ✓"
+            : (match && match.status ? match.status : base.status)
         };
       });
 
       const deduped = [...baseItems];
 
-      // December must include Security Guard (9th item)
-      if (month === 12) {
+      // September & December include quarterly Security Guard (9th item)
+      if (month === 9 || month === 12) {
         const sec = rawList.find(e => (e.head || "").toUpperCase().includes("SECURITY"));
         deduped.push({
           sno: deduped.length + 1,
@@ -2515,7 +2500,9 @@
           particular: sec && sec.particular ? sec.particular : "MAAN AUNT QTRLY 1500",
           amount: sec && !isNaN(parseFloat(sec.amount)) ? parseFloat(sec.amount) : 1500,
           isQuarterly: true,
-          status: sec && sec.status ? sec.status : "Pending Manager Review (Mukesh ji)"
+          status: month === 9
+            ? "Approved by MD (Pranav Boss) ✓"
+            : (sec && sec.status ? sec.status : "Pending Manager Review (Mukesh ji)")
         });
       }
 
@@ -2616,7 +2603,7 @@
       if (!noticeText) return;
 
       if (month === 9) {
-        noticeText.innerHTML = `🛡️ <b>September Record:</b> Sirf Quarterly Security Guard (Maan Aunt ₹1,500) completed record hai ✓. Monthly fixed expenses October se shuru hain. Total: <b>₹1,500.00</b>.`;
+        noticeText.innerHTML = `🛡️ <b>September Fixed Expenses:</b> 8 regular fixed expenses + Q3 Security Guard (₹1,500) shamil hain (Total: 9 records, All Completed & Approved ✓). Total: <b>₹4,26,450.00</b>.`;
       } else if (month === 10) {
         noticeText.innerHTML = `📅 <b>October Fixed Expenses:</b> 8 regular fixed expenses shamil hain (Security Guard December me aayega). Total: <b>₹4,24,950.00</b>.`;
       } else if (month === 11) {
