@@ -1526,14 +1526,53 @@
       const storageKey = `satija_payroll_${year}_${month}`;
       const cached = localStorage.getItem(storageKey);
 
+      // Verified historical salaries for September 2026
+      const SEPTEMBER_2026_SALARIES = {
+        "ms. khushi painter": 15000,
+        "mr. indresh pratap singh": 29500,
+        "ms. neha nidhi xaxa": 15000,
+        "mr. sonu chauhan": 40500,
+        "mr. mukesh shukla": 40000,
+        "mr. pawan negi": 40000,
+        "ms. pooja": 10000,
+        "mr. sandeep dhawan": 40000,
+        "mr. rishabh jain": 22000,
+        "ms. richa": 8000,
+        "mrs. rashmi di": 6500,
+        "mr. ravi kant": 11500,
+        "mr. pawan bhaiya (driver)": 22000,
+        "mrs.sushma shukla": 35000
+      };
+
+      // Auto-set working days: Sep 2026 = 26, Oct 2026 = 27 (Days in month minus Sundays)
+      const daysInM = new Date(year, month, 0).getDate();
+      let sundaysCount = 0;
+      for (let d = 1; d <= daysInM; d++) {
+        if (new Date(year, month - 1, d).getDay() === 0) sundaysCount++;
+      }
+      const defaultWd = daysInM - sundaysCount;
+      const wdInput = document.getElementById('globalWorkingDays');
+      if (wdInput && (!wdInput.dataset.manual || wdInput.dataset.month != month)) {
+        wdInput.value = defaultWd;
+        wdInput.dataset.month = month;
+      }
+
       let cachedList = null;
       // 1. Immediately restore cached month-wise payroll if present
       if (cached) {
         try {
           cachedList = JSON.parse(cached);
           if (Array.isArray(cachedList)) {
-            // Month Isolation: If month is NOT September 2026, strip any leaked September overrides (e.g. Richha 5 days)
-            if (!(month === 9 && year === 2026)) {
+            // Apply September salaries if month is Sep 2026
+            if (month === 9 && year === 2026) {
+              cachedList.forEach(e => {
+                const k = (e.name || "").toLowerCase().trim();
+                if (SEPTEMBER_2026_SALARIES[k] !== undefined) {
+                  e.salary = SEPTEMBER_2026_SALARIES[k];
+                }
+              });
+            } else {
+              // Month Isolation: If month is NOT September 2026, strip any leaked September overrides
               cachedList.forEach(e => {
                 const k = (e.name || "").toLowerCase();
                 if (k.includes('rich') && (e.leaveOverride === 5 || e.leaveOverride === '5')) {
@@ -1594,9 +1633,13 @@
             let leaveOverride = "";
             let deductionOverride = "";
             let status = "Pending Manager Review";
+            let salary = Number(emp.salary) || 0;
 
             if (month === 9 && year === 2026) {
-              // September 2026 is the completed past payroll month
+              // September 2026 verified pay
+              if (SEPTEMBER_2026_SALARIES[key] !== undefined) {
+                salary = SEPTEMBER_2026_SALARIES[key];
+              }
               leaveOverride = (loc && loc.leaveOverride !== undefined && loc.leaveOverride !== "")
                 ? loc.leaveOverride
                 : ((emp.leaveOverride !== undefined && emp.leaveOverride !== "") ? emp.leaveOverride : "");
@@ -1605,13 +1648,7 @@
                 : ((emp.deductionOverride !== undefined && emp.deductionOverride !== "") ? emp.deductionOverride : "");
               status = "Approved by MD ✓";
             } else {
-              // Any other month (October, November, etc.):
-              // Strictly isolate! Previous month's overrides or approved status must NOT leak!
-              if (loc && loc.leaveOverride !== undefined && loc.leaveOverride !== "") {
-                if (!(key.includes("rich") && (loc.leaveOverride === 5 || loc.leaveOverride === "5"))) {
-                  leaveOverride = loc.leaveOverride;
-                }
-              }
+              // October / current month uses revised master salary
               if (loc && loc.deductionOverride !== undefined && loc.deductionOverride !== "") {
                 if (!(key.includes("rich") && (loc.deductionOverride === 1530 || loc.deductionOverride === "1530"))) {
                   deductionOverride = loc.deductionOverride;
@@ -1622,7 +1659,8 @@
 
             return {
               ...emp,
-              leaveOverride,
+              salary,
+              leaveOverride: "",
               deductionOverride,
               status
             };

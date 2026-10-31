@@ -90,14 +90,35 @@ function getEmployees_(month, year) {
     }
   });
 
+  const SEPTEMBER_2026_SALARIES = {
+    "ms. khushi painter": 15000,
+    "mr. indresh pratap singh": 29500,
+    "ms. neha nidhi xaxa": 15000,
+    "mr. sonu chauhan": 40500,
+    "mr. mukesh shukla": 40000,
+    "mr. pawan negi": 40000,
+    "ms. pooja": 10000,
+    "mr. sandeep dhawan": 40000,
+    "mr. rishabh jain": 22000,
+    "ms. richa": 8000,
+    "mrs. rashmi di": 6500,
+    "mr. ravi kant": 11500,
+    "mr. pawan bhaiya (driver)": 22000,
+    "mrs.sushma shukla": 35000
+  };
+
   return Object.keys(employeeMap).map(function (key) {
     const employee = employeeMap[key];
     const leave = leaves[key] || { total: 0, cl: 0, sl: 0, half: 0, details: [] };
     const saved = payrollMap[key] || {};
+    let sal = employee.salary;
+    if (month === 9 && year === 2026 && SEPTEMBER_2026_SALARIES[key] !== undefined) {
+      sal = SEPTEMBER_2026_SALARIES[key];
+    }
     return {
       name: employee.name,
       mode: employee.mode,
-      salary: employee.salary,
+      salary: sal,
       leaves: leave.total,
       leaveCL: leave.cl,
       leaveSL: leave.sl,
@@ -130,22 +151,24 @@ function savePayroll_(payload) {
   const MONTH_NAMES = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const mName = MONTH_NAMES[month] || ("Month_" + month);
 
-  // 1. Update Master Employees Sheet
-  const employeeSheet = ensureSheet_(ss, EMPLOYEES_TAB, ["Name", "Mode", "MonthlySalary"]);
-  const empRows = employeeSheet.getDataRange().getValues();
-  const empRowByName = {};
-  for (let i = 1; i < empRows.length; i++) {
-    if (empRows[i][0]) empRowByName[norm_(empRows[i][0])] = i + 1;
-  }
-  employees.forEach(function (emp) {
-    const key = norm_(emp.name);
-    const empVals = [emp.name, emp.mode || "Cash", Number(emp.salary) || 0];
-    if (empRowByName[key]) {
-      employeeSheet.getRange(empRowByName[key], 1, 1, 3).setValues([empVals]);
-    } else {
-      employeeSheet.appendRow(empVals);
+  // 1. Update Master Employees Sheet (only for current/active months, do not overwrite with past September salaries)
+  if (!(month === 9 && year === 2026)) {
+    const employeeSheet = ensureSheet_(ss, EMPLOYEES_TAB, ["Name", "Mode", "MonthlySalary"]);
+    const empRows = employeeSheet.getDataRange().getValues();
+    const empRowByName = {};
+    for (let i = 1; i < empRows.length; i++) {
+      if (empRows[i][0]) empRowByName[norm_(empRows[i][0])] = i + 1;
     }
-  });
+    employees.forEach(function (emp) {
+      const key = norm_(emp.name);
+      const empVals = [emp.name, emp.mode || "Cash", Number(emp.salary) || 0];
+      if (empRowByName[key]) {
+        employeeSheet.getRange(empRowByName[key], 1, 1, 3).setValues([empVals]);
+      } else {
+        employeeSheet.appendRow(empVals);
+      }
+    });
+  }
 
   // 2. Update Master Payroll Sheet (Overrides & Status)
   const payrollSheet = payrollSheet_(ss);
