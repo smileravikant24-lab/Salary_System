@@ -1092,6 +1092,7 @@
           <button class="btn btn-green sm" onclick="exportExcel()" title="Export clean Excel spreadsheet">📊 Excel</button>
           <button class="btn sm" style="background:#dc2626; color:white; border:none; border-radius:6px; font-weight:600; padding:6px 12px; cursor:pointer;" onclick="exportPayrollPDF()" title="Download printable PDF statement">📄 PDF</button>
           <button class="btn btn-ghost sm" onclick="loadDataFromSheet()">🔄 Refresh</button>
+          <button class="btn btn-blue sm" onclick="syncPayrollState(false)" title="Save current month payroll directly to Google Sheet">💾 Save to Sheet</button>
           <button class="btn btn-blue sm" id="addEmpBtn" onclick="openModal()" style="display:none;">+ Add
             Employee</button>
         </div>
@@ -1628,6 +1629,7 @@
           });
 
           localStorage.setItem(storageKey, JSON.stringify(employeeData));
+          syncPayrollState(true);
 
           const totalLeaves = employeeData.reduce((s, e) => s + (parseFloat(e.leaves) || 0), 0);
           const empWithLeaves = employeeData.filter(e => (parseFloat(e.leaves) || 0) > 0).length;
@@ -2143,17 +2145,31 @@
       showToast("Employee deleted.", "success");
     }
 
-    function syncPayrollState() {
+    function syncPayrollState(silent = true) {
       const { month, year } = getSelectedMonthYear();
       const storageKey = `satija_payroll_${year}_${month}`;
       localStorage.setItem(storageKey, JSON.stringify(employeeData));
+
+      const wd = parseFloat(document.getElementById('globalWorkingDays')?.value) || 26;
+      const enrichedData = employeeData.map(emp => {
+        const amounts = getPayrollAmounts(emp, wd);
+        return {
+          ...emp,
+          leaveDays: amounts.leaveDays,
+          perDay: Math.round(amounts.perDay * 100) / 100,
+          leaveDeduction: Math.round(amounts.leaveDeduction * 100) / 100,
+          dayBasedAmount: Math.round(amounts.dayBasedAmount * 100) / 100,
+          finalAmount: Math.round(amounts.finalAmount * 100) / 100
+        };
+      });
 
       postToBackend({
         action: "savePayroll",
         month: month,
         year: year,
-        data: employeeData
+        data: enrichedData
       });
+      if (!silent) showToast("💾 Saved to Google Sheet successfully!", "success");
     }
 
     function postToBackend(payload) {
